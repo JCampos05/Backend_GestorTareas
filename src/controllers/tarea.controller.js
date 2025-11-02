@@ -1,0 +1,362 @@
+const Tarea = require('../models/tarea');
+
+const tareaController = {
+    crearTarea: async (req, res) => {
+        try {
+            const { 
+                nombre, descripcion, prioridad, estado, fechaVencimiento, 
+                pasos, notas, recordatorio, repetir, tipoRepeticion, 
+                configRepeticion, idLista 
+            } = req.body;
+
+            // Validación básica
+            if (!nombre || nombre.trim() === '') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'El nombre de la tarea es requerido'
+                });
+            }
+
+            // Validar prioridad
+            if (prioridad && !['A', 'N', 'B'].includes(prioridad)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Prioridad inválida. Use A (Alta), N (Normal) o B (Baja)'
+                });
+            }
+
+            // Validar estado
+            if (estado && !['C', 'P', 'N'].includes(estado)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Estado inválido. Use C (Completada), P (Pendiente) o N (En progreso)'
+                });
+            }
+
+            const nuevaTarea = await Tarea.crear({
+                nombre: nombre.trim(),
+                descripcion: descripcion?.trim(),
+                prioridad,
+                estado,
+                fechaVencimiento,
+                pasos,
+                notas,
+                recordatorio,
+                repetir,
+                tipoRepeticion,
+                configRepeticion,
+                idLista: idLista || null
+            });
+
+            res.status(201).json({
+                success: true,
+                message: 'Tarea creada exitosamente',
+                data: nuevaTarea
+            });
+        } catch (error) {
+            console.error('Error en crearTarea:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al crear la tarea',
+                error: error.message
+            });
+        }
+    },
+
+    // Obtener todas las tareas
+    obtenerTareas: async (req, res) => {
+        try {
+            const tareas = await Tarea.obtenerTodas();
+            
+            res.status(200).json({
+                success: true,
+                count: tareas.length,
+                data: tareas
+            });
+        } catch (error) {
+            console.error('Error en obtenerTareas:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener las tareas',
+                error: error.message
+            });
+        }
+    },
+
+    // Obtener tarea por ID
+    obtenerTareaPorId: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const tarea = await Tarea.obtenerPorId(id);
+
+            if (!tarea) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Tarea no encontrada'
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                data: tarea
+            });
+        } catch (error) {
+            console.error('Error en obtenerTareaPorId:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener la tarea',
+                error: error.message
+            });
+        }
+    },
+
+    actualizarTarea: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { 
+                nombre, descripcion, prioridad, estado, fechaVencimiento,
+                pasos, notas, recordatorio, repetir, tipoRepeticion,
+                configRepeticion, idLista
+            } = req.body;
+
+            // Validar que exista al menos un campo para actualizar
+            const hayCambios = nombre || descripcion || prioridad || estado || 
+                              fechaVencimiento || pasos || notas || recordatorio || 
+                              repetir !== undefined || tipoRepeticion || 
+                              configRepeticion || idLista !== undefined;
+
+            if (!hayCambios) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Debe proporcionar al menos un campo para actualizar'
+                });
+            }
+
+            // Validar prioridad si se proporciona
+            if (prioridad && !['A', 'N', 'B'].includes(prioridad)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Prioridad inválida'
+                });
+            }
+
+            // Validar estado si se proporciona
+            if (estado && !['C', 'P', 'N'].includes(estado)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Estado inválido'
+                });
+            }
+
+            const tareaActualizada = await Tarea.actualizar(id, {
+                nombre: nombre?.trim(),
+                descripcion: descripcion?.trim(),
+                prioridad,
+                estado,
+                fechaVencimiento,
+                pasos,
+                notas,
+                recordatorio,
+                repetir,
+                tipoRepeticion,
+                configRepeticion,
+                idLista
+            });
+
+            if (!tareaActualizada) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Tarea no encontrada'
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                message: 'Tarea actualizada exitosamente',
+                data: tareaActualizada
+            });
+        } catch (error) {
+            console.error('Error en actualizarTarea:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al actualizar la tarea',
+                error: error.message
+            });
+        }
+    },
+
+    // Eliminar tarea
+    eliminarTarea: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const eliminada = await Tarea.eliminar(id);
+            
+            console.log(id)
+            console.log(eliminada)
+
+            if (!eliminada) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Tarea no encontrada'
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                message: 'Tarea eliminada exitosamente'
+            });
+        } catch (error) {
+            console.error('Error en eliminarTarea:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al eliminar la tarea',
+                error: error.message
+            });
+        }
+    },
+
+    // Cambiar estado de tarea
+    cambiarEstado: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { estado } = req.body;
+
+            if (!estado) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'El estado es requerido'
+                });
+            }
+
+            if (!['C', 'P', 'N'].includes(estado)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Estado inválido. Use C (Completada), P (Pendiente) o N (En progreso)'
+                });
+            }
+
+            const tareaActualizada = await Tarea.cambiarEstado(id, estado);
+
+            if (!tareaActualizada) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Tarea no encontrada'
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                message: 'Estado actualizado exitosamente',
+                data: tareaActualizada
+            });
+        } catch (error) {
+            console.error('Error en cambiarEstado:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al cambiar el estado',
+                error: error.message
+            });
+        }
+    },
+
+    // Obtener tareas por estado
+    obtenerPorEstado: async (req, res) => {
+        try {
+            const { estado } = req.params;
+
+            if (!['C', 'P', 'N'].includes(estado)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Estado inválido'
+                });
+            }
+
+            const tareas = await Tarea.obtenerPorEstado(estado);
+
+            res.status(200).json({
+                success: true,
+                count: tareas.length,
+                data: tareas
+            });
+        } catch (error) {
+            console.error('Error en obtenerPorEstado:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener tareas por estado',
+                error: error.message
+            });
+        }
+    },
+
+    // Obtener tareas por prioridad
+    obtenerPorPrioridad: async (req, res) => {
+        try {
+            const { prioridad } = req.params;
+
+            if (!['A', 'N', 'B'].includes(prioridad)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Prioridad inválida'
+                });
+            }
+
+            const tareas = await Tarea.obtenerPorPrioridad(prioridad);
+
+            res.status(200).json({
+                success: true,
+                count: tareas.length,
+                data: tareas
+            });
+        } catch (error) {
+            console.error('Error en obtenerPorPrioridad:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener tareas por prioridad',
+                error: error.message
+            });
+        }
+    },
+
+    // Obtener tareas vencidas
+    obtenerVencidas: async (req, res) => {
+        try {
+            const tareas = await Tarea.obtenerVencidas();
+
+            res.status(200).json({
+                success: true,
+                count: tareas.length,
+                data: tareas
+            });
+        } catch (error) {
+            console.error('Error en obtenerVencidas:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener tareas vencidas',
+                error: error.message
+            });
+        }
+    },
+
+    // Obtener tareas por lista
+    obtenerPorLista: async (req, res) => {
+        try {
+            const { idLista } = req.params;
+            const tareas = await Tarea.obtenerPorLista(idLista);
+
+            res.status(200).json({
+                success: true,
+                count: tareas.length,
+                data: tareas
+            });
+        } catch (error) {
+            console.error('Error en obtenerPorLista:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener tareas por lista',
+                error: error.message
+            });
+        }
+    }
+};
+
+module.exports = tareaController;
