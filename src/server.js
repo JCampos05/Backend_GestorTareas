@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
+const pool = require('./config/config');
+
 const tareaRoutes = require('./routes/tareas.routes');
 const listaRoutes = require('./routes/lista.routes');
 const categoriaRoutes = require('./routes/categoria.routes');
@@ -25,6 +27,32 @@ app.use(express.static('../Frontend2'));
 app.use((req, res, next) => {
     console.log(`${req.method} ${req.path} - ${new Date().toLocaleString()}`);
     next();
+});
+
+// Health check optimizado para Render
+app.get('/healthz', async (req, res) => {
+    try {
+        // Timeout de 3 segundos para la verificación de BD
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), 3000)
+        );
+        
+        const checkPromise = (async () => {
+            const connection = await pool.getConnection();
+            await connection.ping();
+            connection.release();
+        })();
+        
+        await Promise.race([checkPromise, timeoutPromise]);
+        
+        res.status(200).json({ status: 'healthy' });
+    } catch (error) {
+        console.error('Health check failed:', error);
+        res.status(503).json({ 
+            status: 'unhealthy',
+            error: error.message 
+        });
+    }
 });
 
 // Rutas de API
