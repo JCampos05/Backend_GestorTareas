@@ -9,6 +9,8 @@ const tareaController = {
                 configRepeticion, idLista 
             } = req.body;
 
+            const idUsuario = req.usuario.idUsuario;
+
             // Validación básica
             if (!nombre || nombre.trim() === '') {
                 return res.status(400).json({
@@ -34,6 +36,7 @@ const tareaController = {
             }
 
             const nuevaTarea = await Tarea.crear({
+                idUsuario,
                 nombre: nombre.trim(),
                 descripcion: descripcion?.trim(),
                 prioridad,
@@ -66,7 +69,8 @@ const tareaController = {
     // Obtener todas las tareas
     obtenerTareas: async (req, res) => {
         try {
-            const tareas = await Tarea.obtenerTodas();
+            const idUsuario = req.usuario.idUsuario;
+            const tareas = await Tarea.obtenerTodas(idUsuario);
             
             res.status(200).json({
                 success: true,
@@ -87,6 +91,7 @@ const tareaController = {
     obtenerTareaPorId: async (req, res) => {
         try {
             const { id } = req.params;
+            const idUsuario = req.usuario.idUsuario;
             const tarea = await Tarea.obtenerPorId(id);
 
             if (!tarea) {
@@ -113,6 +118,7 @@ const tareaController = {
     actualizarTarea: async (req, res) => {
         try {
             const { id } = req.params;
+            const idUsuario = req.usuario.idUsuario;
             const { 
                 nombre, descripcion, prioridad, estado, fechaVencimiento,
                 pasos, notas, recordatorio, repetir, tipoRepeticion,
@@ -121,9 +127,9 @@ const tareaController = {
 
             // Validar que exista al menos un campo para actualizar
             const hayCambios = nombre || descripcion || prioridad || estado || 
-                              fechaVencimiento || pasos || notas || recordatorio || 
-                              repetir !== undefined || tipoRepeticion || 
-                              configRepeticion || idLista !== undefined;
+                                fechaVencimiento || pasos || notas || recordatorio || 
+                                repetir !== undefined || tipoRepeticion || 
+                                configRepeticion || idLista !== undefined;
 
             if (!hayCambios) {
                 return res.status(400).json({
@@ -161,7 +167,7 @@ const tareaController = {
                 tipoRepeticion,
                 configRepeticion,
                 idLista
-            });
+            }, idUsuario);
 
             if (!tareaActualizada) {
                 return res.status(404).json({
@@ -189,7 +195,8 @@ const tareaController = {
     eliminarTarea: async (req, res) => {
         try {
             const { id } = req.params;
-            const eliminada = await Tarea.eliminar(id);
+            const idUsuario = req.usuario.idUsuario;
+            const eliminada = await Tarea.eliminar(id, idUsuario);
             
             console.log(id)
             console.log(eliminada)
@@ -220,6 +227,7 @@ const tareaController = {
         try {
             const { id } = req.params;
             const { estado } = req.body;
+            const idUsuario = req.usuario.idUsuario;
 
             if (!estado) {
                 return res.status(400).json({
@@ -235,7 +243,7 @@ const tareaController = {
                 });
             }
 
-            const tareaActualizada = await Tarea.cambiarEstado(id, estado);
+            const tareaActualizada = await Tarea.cambiarEstado(id, estado, idUsuario);
 
             if (!tareaActualizada) {
                 return res.status(404).json({
@@ -263,6 +271,7 @@ const tareaController = {
     obtenerPorEstado: async (req, res) => {
         try {
             const { estado } = req.params;
+            const idUsuario = req.usuario.idUsuario;
 
             if (!['C', 'P', 'N'].includes(estado)) {
                 return res.status(400).json({
@@ -271,7 +280,7 @@ const tareaController = {
                 });
             }
 
-            const tareas = await Tarea.obtenerPorEstado(estado);
+            const tareas = await Tarea.obtenerPorEstado(estado, idUsuario);
 
             res.status(200).json({
                 success: true,
@@ -292,6 +301,7 @@ const tareaController = {
     obtenerPorPrioridad: async (req, res) => {
         try {
             const { prioridad } = req.params;
+            const idUsuario = req.usuario.idUsuario;
 
             if (!['A', 'N', 'B'].includes(prioridad)) {
                 return res.status(400).json({
@@ -300,7 +310,7 @@ const tareaController = {
                 });
             }
 
-            const tareas = await Tarea.obtenerPorPrioridad(prioridad);
+            const tareas = await Tarea.obtenerPorPrioridad(prioridad, idUsuario);
 
             res.status(200).json({
                 success: true,
@@ -320,7 +330,8 @@ const tareaController = {
     // Obtener tareas vencidas
     obtenerVencidas: async (req, res) => {
         try {
-            const tareas = await Tarea.obtenerVencidas();
+            const idUsuario = req.usuario.idUsuario;
+            const tareas = await Tarea.obtenerVencidas(idUsuario);
 
             res.status(200).json({
                 success: true,
@@ -341,7 +352,8 @@ const tareaController = {
     obtenerPorLista: async (req, res) => {
         try {
             const { idLista } = req.params;
-            const tareas = await Tarea.obtenerPorLista(idLista);
+            const idUsuario = req.usuario.idUsuario;
+            const tareas = await Tarea.obtenerPorLista(idLista, idUsuario);
 
             res.status(200).json({
                 success: true,

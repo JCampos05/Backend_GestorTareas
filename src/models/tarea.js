@@ -24,9 +24,9 @@ class Tarea {
                 INSERT INTO tarea (
                     nombre, descripcion, prioridad, estado, fechaVencimiento, 
                     pasos, notas, recordatorio, repetir, tipoRepeticion, 
-                    configRepeticion, idLista
+                    configRepeticion, idLista, idUsuario
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             
             const [result] = await db.execute(query, [
@@ -41,7 +41,8 @@ class Tarea {
                 tareaData.repetir || false,
                 tareaData.tipoRepeticion || null,
                 tareaData.configRepeticion || null,
-                tareaData.idLista || null
+                tareaData.idLista || null,
+                tareaData.idUsuario
             ]);
 
             return {
@@ -55,10 +56,10 @@ class Tarea {
     }
 
     // Obtener todas las tareas
-    static async obtenerTodas() {
+    static async obtenerTodas(idUsuario) {
         try {
-            const query = 'SELECT * FROM tarea ORDER BY fechaCreacion DESC';
-            const [rows] = await db.execute(query);
+            const query = 'SELECT * FROM tarea WHERE idUsuario = ? ORDER BY fechaCreacion DESC';
+            const [rows] = await db.execute(query, [idUsuario]);
             return rows.map(row => new Tarea(row));
         } catch (error) {
             throw new Error(`Error al obtener tareas: ${error.message}`);
@@ -66,10 +67,10 @@ class Tarea {
     }
 
     // Obtener tarea por ID
-    static async obtenerPorId(id) {
+    static async obtenerPorId(id, idUsuario) {
         try {
-            const query = 'SELECT * FROM tarea WHERE idTarea = ?';
-            const [rows] = await db.execute(query, [id]);
+            const query = 'SELECT * FROM tarea WHERE idTarea = ? AND idUsuario = ?';
+            const [rows] = await db.execute(query, [id, idUsuario]);
             
             if (rows.length === 0) {
                 return null;
@@ -81,7 +82,7 @@ class Tarea {
         }
     }
 
-    static async actualizar(id, tareaData) {
+    static async actualizar(id, tareaData, idUsuario) {
         try {
             const campos = [];
             const valores = [];
@@ -140,7 +141,8 @@ class Tarea {
             }
 
             valores.push(id);
-            const query = `UPDATE tarea SET ${campos.join(', ')} WHERE idTarea = ?`;
+            valores.push(idUsuario);
+            const query = `UPDATE tarea SET ${campos.join(', ')} WHERE idTarea = ? AND idUsuario = ?`;
             
             const [result] = await db.execute(query, valores);
             
@@ -148,16 +150,16 @@ class Tarea {
                 return null;
             }
 
-            return await this.obtenerPorId(id);
+            return await this.obtenerPorId(id, idUsuario);
         } catch (error) {
             throw new Error(`Error al actualizar tarea: ${error.message}`);
         }
     }
 
     // Eliminar tarea
-    static async eliminar(id) {
+    static async eliminar(id, idUsuario) {
         try {
-            const query = 'DELETE FROM tarea WHERE idTarea = ?';
+            const query = 'DELETE FROM tarea WHERE idTarea = ? AND idUsuario = ?';
             const [result] = await db.execute(query, [id]);
             
             return result.affectedRows > 0;
@@ -167,23 +169,23 @@ class Tarea {
     }
 
     // Cambiar estado de tarea
-    static async cambiarEstado(id, nuevoEstado) {
+    static async cambiarEstado(id, nuevoEstado, idUsuario) {
         try {
             if (!['C', 'P', 'N'].includes(nuevoEstado)) {
                 throw new Error('Estado inválido');
             }
 
-            return await this.actualizar(id, { estado: nuevoEstado });
+            return await this.actualizar(id, { estado: nuevoEstado }, idUsuario);
         } catch (error) {
             throw new Error(`Error al cambiar estado: ${error.message}`);
         }
     }
 
     // Obtener tareas por estado
-    static async obtenerPorEstado(estado) {
+    static async obtenerPorEstado(estado, idUsuario) {
         try {
-            const query = 'SELECT * FROM tarea WHERE estado = ? ORDER BY fechaCreacion DESC';
-            const [rows] = await db.execute(query, [estado]);
+            const query = 'SELECT * FROM tarea WHERE estado = ? AND idUsuario = ? ORDER BY fechaCreacion DESC';
+            const [rows] = await db.execute(query, [estado, idUsuario]);
             return rows.map(row => new Tarea(row));
         } catch (error) {
             throw new Error(`Error al obtener tareas por estado: ${error.message}`);
@@ -191,10 +193,10 @@ class Tarea {
     }
 
     // Obtener tareas por prioridad
-    static async obtenerPorPrioridad(prioridad) {
+    static async obtenerPorPrioridad(prioridad, idUsuario) {
         try {
-            const query = 'SELECT * FROM tarea WHERE prioridad = ? ORDER BY fechaCreacion DESC';
-            const [rows] = await db.execute(query, [prioridad]);
+            const query = 'SELECT * FROM tarea WHERE prioridad = ? AND idUsuario = ? ORDER BY fechaCreacion DESC';
+            const [rows] = await db.execute(query, [prioridad, idUsuario]);
             return rows.map(row => new Tarea(row));
         } catch (error) {
             throw new Error(`Error al obtener tareas por prioridad: ${error.message}`);
@@ -202,15 +204,16 @@ class Tarea {
     }
 
     // Obtener tareas vencidas
-    static async obtenerVencidas() {
+    static async obtenerVencidas(idUsuario) {
         try {
             const query = `
                 SELECT * FROM tarea 
                 WHERE fechaVencimiento < CURDATE() 
                 AND estado != 'C'
+                AND idUsuario = ?
                 ORDER BY fechaVencimiento ASC
             `;
-            const [rows] = await db.execute(query);
+            const [rows] = await db.execute(query, [idUsuario]);
             return rows.map(row => new Tarea(row));
         } catch (error) {
             throw new Error(`Error al obtener tareas vencidas: ${error.message}`);
@@ -218,10 +221,10 @@ class Tarea {
     }
 
     // Obtener tareas por lista
-    static async obtenerPorLista(idLista) {
+    static async obtenerPorLista(idLista, idUsuario) {
         try {
-            const query = 'SELECT * FROM tarea WHERE idLista = ? ORDER BY fechaCreacion DESC';
-            const [rows] = await db.execute(query, [idLista]);
+            const query = 'SELECT * FROM tarea WHERE idLista = ? AND idUsuario = ? ORDER BY fechaCreacion DESC';
+            const [rows] = await db.execute(query, [idLista, idUsuario]);
             return rows.map(row => new Tarea(row));
         } catch (error) {
             throw new Error(`Error al obtener tareas por lista: ${error.message}`);

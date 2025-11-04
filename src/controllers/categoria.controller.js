@@ -5,6 +5,7 @@ const categoriaController = {
     crearCategoria: async (req, res) => {
         try {
             const { nombre } = req.body;
+            const idUsuario = req.usuario.idUsuario;
 
             if (!nombre || nombre.trim() === '') {
                 return res.status(400).json({
@@ -13,7 +14,10 @@ const categoriaController = {
                 });
             }
 
-            const nuevaCategoria = await Categoria.crear({ nombre: nombre.trim() });
+            const nuevaCategoria = await Categoria.crear({ 
+                nombre: nombre.trim(), 
+                idUsuario: idUsuario
+            });
 
             res.status(201).json({
                 success: true,
@@ -33,7 +37,8 @@ const categoriaController = {
     // Obtener todas las categorías
     obtenerCategorias: async (req, res) => {
         try {
-            const categorias = await Categoria.obtenerTodas();
+            const idUsuario = req.usuario.idUsuario;
+            const categorias = await Categoria.obtenerTodas(idUsuario);
             
             res.status(200).json({
                 success: true,
@@ -54,7 +59,8 @@ const categoriaController = {
     obtenerCategoriaPorId: async (req, res) => {
         try {
             const { id } = req.params;
-            const categoria = await Categoria.obtenerPorId(id);
+            const idUsuario = req.usuario.idUsuario;
+            const categoria = await Categoria.obtenerPorId(id, idUsuario);
 
             if (!categoria) {
                 return res.status(404).json({
@@ -82,6 +88,7 @@ const categoriaController = {
         try {
             const { id } = req.params;
             const { nombre } = req.body;
+            const idUsuario = req.usuario.idUsuario;
 
             if (!nombre || nombre.trim() === '') {
                 return res.status(400).json({
@@ -92,7 +99,7 @@ const categoriaController = {
 
             const categoriaActualizada = await Categoria.actualizar(id, {
                 nombre: nombre.trim()
-            });
+            }, idUsuario);
 
             if (!categoriaActualizada) {
                 return res.status(404).json({
@@ -120,7 +127,8 @@ const categoriaController = {
     eliminarCategoria: async (req, res) => {
         try {
             const { id } = req.params;
-            const eliminada = await Categoria.eliminar(id);
+            const idUsuario = req.usuario.idUsuario;
+            const eliminada = await Categoria.eliminar(id, idUsuario);
 
             if (!eliminada) {
                 return res.status(404).json({
@@ -147,7 +155,8 @@ const categoriaController = {
     obtenerConListas: async (req, res) => {
         try {
             const { id } = req.params;
-            const categoria = await Categoria.obtenerConListas(id);
+            const idUsuario = req.usuario.idUsuario;
+            const categoria = await Categoria.obtenerConListas(id, idUsuario);
 
             if (!categoria) {
                 return res.status(404).json({

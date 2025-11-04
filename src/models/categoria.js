@@ -9,9 +9,10 @@ class Categoria {
     // Crear una nueva categoría
     static async crear(categoriaData) {
         try {
-            const query = `INSERT INTO categoria (nombre) VALUES (?)`;
+            const {nombre, idUsuario} = categoriaData;
+            const query = `INSERT INTO categoria (nombre, idUsuario) VALUES (?, ?)`;
             
-            const [result] = await db.execute(query, [categoriaData.nombre]);
+            const [result] = await db.execute(query, [nombre, idUsuario]);
 
             return {
                 idCategoria: result.insertId,
@@ -23,10 +24,10 @@ class Categoria {
     }
 
     // Obtener todas las categorías
-    static async obtenerTodas() {
+    static async obtenerTodas(idUsuario) {
         try {
-            const query = 'SELECT * FROM categoria ORDER BY nombre ASC';
-            const [rows] = await db.execute(query);
+            const query = 'SELECT * FROM categoria WHERE idUsuario = ? ORDER BY nombre ASC';
+            const [rows] = await db.execute(query, [idUsuario]);
             return rows.map(row => new Categoria(row));
         } catch (error) {
             throw new Error(`Error al obtener categorías: ${error.message}`);
@@ -34,10 +35,10 @@ class Categoria {
     }
 
     // Obtener categoría por ID
-    static async obtenerPorId(id) {
+    static async obtenerPorId(id, idUsuario) {
         try {
-            const query = 'SELECT * FROM categoria WHERE idCategoria = ?';
-            const [rows] = await db.execute(query, [id]);
+            const query = 'SELECT * FROM categoria WHERE idCategoria = ? AND idUsuario = ?';
+            const [rows] = await db.execute(query, [id, idUsuario]);
             
             if (rows.length === 0) {
                 return null;
@@ -50,30 +51,30 @@ class Categoria {
     }
 
     // Actualizar categoría
-    static async actualizar(id, categoriaData) {
+    static async actualizar(id, categoriaData, idUsuario) {
         try {
             if (!categoriaData.nombre) {
                 throw new Error('El nombre es requerido');
             }
 
-            const query = `UPDATE categoria SET nombre = ? WHERE idCategoria = ?`;
-            const [result] = await db.execute(query, [categoriaData.nombre, id]);
+            const query = `UPDATE categoria SET nombre = ? WHERE idCategoria = ? AND idUsuario = ?`;
+            const [result] = await db.execute(query, [categoriaData.nombre, id, idUsuario]);
             
             if (result.affectedRows === 0) {
                 return null;
             }
 
-            return await this.obtenerPorId(id);
+            return await this.obtenerPorId(id, idUsuario);
         } catch (error) {
             throw new Error(`Error al actualizar categoría: ${error.message}`);
         }
     }
 
     // Eliminar categoría
-    static async eliminar(id) {
+    static async eliminar(id, idUsuario) {
         try {
-            const query = 'DELETE FROM categoria WHERE idCategoria = ?';
-            const [result] = await db.execute(query, [id]);
+            const query = 'DELETE FROM categoria WHERE idCategoria = ? AND idUsuario = ?';
+            const [result] = await db.execute(query, [id, idUsuario]);
             
             return result.affectedRows > 0;
         } catch (error) {
@@ -82,17 +83,17 @@ class Categoria {
     }
 
     // Obtener categoría con sus listas
-    static async obtenerConListas(id) {
+    static async obtenerConListas(id, idUsuario) {
         try {
             const query = `
                 SELECT c.*, 
-                       l.idLista, l.nombre as nombreLista, l.color, l.icono, l.fechaCreacion as fechaCreacionLista
+                    l.idLista, l.nombre as nombreLista, l.color, l.icono, l.fechaCreacion as fechaCreacionLista
                 FROM categoria c
                 LEFT JOIN lista l ON c.idCategoria = l.idCategoria
-                WHERE c.idCategoria = ?
+                WHERE c.idCategoria = ? AND c.idUsuario = ?
                 ORDER BY l.nombre ASC
             `;
-            const [rows] = await db.execute(query, [id]);
+            const [rows] = await db.execute(query, [id, idUsuario]);
             
             if (rows.length === 0) {
                 return null;

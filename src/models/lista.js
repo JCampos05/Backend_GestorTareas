@@ -14,15 +14,16 @@ class Lista {
     static async crear(listaData) {
         try {
             const query = `
-                INSERT INTO lista (nombre, color, icono, idCategoria)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO lista (nombre, color, icono, idCategoria, idUsuario)
+                VALUES (?, ?, ?, ?, ?)
             `;
             
             const [result] = await db.execute(query, [
                 listaData.nombre,
                 listaData.color || null,
                 listaData.icono || null,
-                listaData.idCategoria || null
+                listaData.idCategoria || null,
+                listaData.idUsuario
             ]);
 
             return {
@@ -36,15 +37,16 @@ class Lista {
     }
 
     // Obtener todas las listas
-    static async obtenerTodas() {
+    static async obtenerTodas(idUsuario) {
         try {
             const query = `
                 SELECT l.*, c.nombre as nombreCategoria
                 FROM lista l
                 LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
+                WHERE l.idUsuario = ?
                 ORDER BY l.fechaCreacion DESC
             `;
-            const [rows] = await db.execute(query);
+            const [rows] = await db.execute(query, [idUsuario]);
             return rows;
         } catch (error) {
             throw new Error(`Error al obtener listas: ${error.message}`);
@@ -52,15 +54,15 @@ class Lista {
     }
 
     // Obtener lista por ID
-    static async obtenerPorId(id) {
+    static async obtenerPorId(id, idUsuario) {
         try {
             const query = `
                 SELECT l.*, c.nombre as nombreCategoria
                 FROM lista l
                 LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
-                WHERE l.idLista = ?
+                WHERE l.idLista = ? AND l.idUsuario = ?
             `;
-            const [rows] = await db.execute(query, [id]);
+            const [rows] = await db.execute(query, [id, idUsuario]);
             
             if (rows.length === 0) {
                 return null;
@@ -73,7 +75,7 @@ class Lista {
     }
 
     // Actualizar lista
-    static async actualizar(id, listaData) {
+    static async actualizar(id, listaData, idUsuario) {
         try {
             const campos = [];
             const valores = [];
@@ -100,25 +102,26 @@ class Lista {
             }
 
             valores.push(id);
-            const query = `UPDATE lista SET ${campos.join(', ')} WHERE idLista = ?`;
-            
+            const query = `UPDATE lista SET ${campos.join(', ')} WHERE idLista = ? AND idUsuario = ?`;
+            valores.push(idUsuario);
+
             const [result] = await db.execute(query, valores);
             
             if (result.affectedRows === 0) {
                 return null;
             }
 
-            return await this.obtenerPorId(id);
+            return await this.obtenerPorId(id, idUsuario);
         } catch (error) {
             throw new Error(`Error al actualizar lista: ${error.message}`);
         }
     }
 
     // Eliminar lista
-    static async eliminar(id) {
+    static async eliminar(id, idUsuario) {
         try {
-            const query = 'DELETE FROM lista WHERE idLista = ?';
-            const [result] = await db.execute(query, [id]);
+            const query = 'DELETE FROM lista WHERE idLista = ? AND idUsuario = ?';
+            const [result] = await db.execute(query, [id, idUsuario]);
             
             return result.affectedRows > 0;
         } catch (error) {
@@ -127,19 +130,19 @@ class Lista {
     }
 
     // Obtener lista con sus tareas
-    static async obtenerConTareas(id) {
+    static async obtenerConTareas(id, idUsuario) {
         try {
             const query = `
                 SELECT l.*, c.nombre as nombreCategoria,
-                       t.idTarea, t.nombre as nombreTarea, t.descripcion, t.prioridad, 
-                       t.estado, t.fechaCreacion as fechaCreacionTarea, t.fechaVencimiento
+                        t.idTarea, t.nombre as nombreTarea, t.descripcion, t.prioridad, 
+                        t.estado, t.fechaCreacion as fechaCreacionTarea, t.fechaVencimiento
                 FROM lista l
                 LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
                 LEFT JOIN tarea t ON l.idLista = t.idLista
-                WHERE l.idLista = ?
+                WHERE l.idLista = ? AND l.idUsuario = ?
                 ORDER BY t.fechaCreacion DESC
             `;
-            const [rows] = await db.execute(query, [id]);
+            const [rows] = await db.execute(query,[ id, idUsuario]);
             
             if (rows.length === 0) {
                 return null;
@@ -177,16 +180,16 @@ class Lista {
     }
 
     // Obtener listas por categoría
-    static async obtenerPorCategoria(idCategoria) {
+    static async obtenerPorCategoria(idCategoria, idUsuario) {
         try {
             const query = `
                 SELECT l.*, c.nombre as nombreCategoria
                 FROM lista l
                 LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
-                WHERE l.idCategoria = ?
+                WHERE l.idCategoria = ? AND L.idUsuario = ?
                 ORDER BY l.nombre ASC
             `;
-            const [rows] = await db.execute(query, [idCategoria]);
+            const [rows] = await db.execute(query, [idCategoria, idUsuario]);
             return rows;
         } catch (error) {
             throw new Error(`Error al obtener listas por categoría: ${error.message}`);
@@ -194,7 +197,7 @@ class Lista {
     }
 
     // Contar tareas de una lista
-    static async contarTareas(id) {
+    static async contarTareas(id, idUsuario) {
         try {
             const query = `
                 SELECT 
@@ -203,9 +206,9 @@ class Lista {
                     SUM(CASE WHEN estado = 'P' THEN 1 ELSE 0 END) as pendientes,
                     SUM(CASE WHEN estado = 'N' THEN 1 ELSE 0 END) as enProgreso
                 FROM tarea
-                WHERE idLista = ?
+                WHERE idLista = ? AND idUsuario = ?
             `;
-            const [rows] = await db.execute(query, [id]);
+            const [rows] = await db.execute(query, [id, idUsuario]);
             return rows[0];
         } catch (error) {
             throw new Error(`Error al contar tareas: ${error.message}`);

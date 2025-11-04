@@ -5,6 +5,7 @@ const listaController = {
     crearLista: async (req, res) => {
         try {
             const { nombre, color, icono, idCategoria } = req.body;
+            const idUsuario = req.usuario.idUsuario;
 
             if (!nombre || nombre.trim() === '') {
                 return res.status(400).json({
@@ -17,7 +18,8 @@ const listaController = {
                 nombre: nombre.trim(),
                 color: color || null,
                 icono: icono || null,
-                idCategoria: idCategoria || null
+                idCategoria: idCategoria || null,
+                idUsuario
             });
 
             res.status(201).json({
@@ -38,7 +40,8 @@ const listaController = {
     // Obtener todas las listas
     obtenerListas: async (req, res) => {
         try {
-            const listas = await Lista.obtenerTodas();
+            const idUsuario = req.usuario.idUsuario;
+            const listas = await Lista.obtenerTodas(idUsuario);
             
             res.status(200).json({
                 success: true,
@@ -59,7 +62,8 @@ const listaController = {
     obtenerListaPorId: async (req, res) => {
         try {
             const { id } = req.params;
-            const lista = await Lista.obtenerPorId(id);
+            const idUsuario = req.usuario.idUsuario;
+            const lista = await Lista.obtenerPorId(id, idUsuario);
 
             if (!lista) {
                 return res.status(404).json({
@@ -87,6 +91,7 @@ const listaController = {
         try {
             const { id } = req.params;
             const { nombre, color, icono, idCategoria } = req.body;
+            const idUsuario = req.usuario.idUsuario;
 
             if (!nombre && !color && !icono && idCategoria === undefined) {
                 return res.status(400).json({
@@ -100,7 +105,7 @@ const listaController = {
                 color,
                 icono,
                 idCategoria
-            });
+            }, idUsuario);
 
             if (!listaActualizada) {
                 return res.status(404).json({
@@ -128,7 +133,8 @@ const listaController = {
     eliminarLista: async (req, res) => {
         try {
             const { id } = req.params;
-            const eliminada = await Lista.eliminar(id);
+            const idUsuario = req.usuario.idUsuario;
+            const eliminada = await Lista.eliminar(id, idUsuario);
 
             if (!eliminada) {
                 return res.status(404).json({
@@ -155,7 +161,8 @@ const listaController = {
     obtenerConTareas: async (req, res) => {
         try {
             const { id } = req.params;
-            const lista = await Lista.obtenerConTareas(id);
+            const idUsuario = req.usuario.idUsuario;
+            const lista = await Lista.obtenerConTareas(id, idUsuario);
 
             if (!lista) {
                 return res.status(404).json({
@@ -182,7 +189,8 @@ const listaController = {
     obtenerPorCategoria: async (req, res) => {
         try {
             const { idCategoria } = req.params;
-            const listas = await Lista.obtenerPorCategoria(idCategoria);
+            const idUsuario = req.usuario.idUsuario;
+            const listas = await Lista.obtenerPorCategoria(idCategoria, idUsuario);
 
             res.status(200).json({
                 success: true,
@@ -203,7 +211,8 @@ const listaController = {
     obtenerEstadisticas: async (req, res) => {
         try {
             const { id } = req.params;
-            const estadisticas = await Lista.contarTareas(id);
+            const idUsuario = req.usuario.idUsuario;
+            const estadisticas = await Lista.contarTareas(id, idUsuario);
 
             res.status(200).json({
                 success: true,
