@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const categoriaController = require('../controllers/categoria.controller');
+const verificarToken = require('../middlewares/authMiddleware').verificarToken;
+router.use(verificarToken);
 
 // Rutas principales de categorías
 router.post('/', categoriaController.crearCategoria);

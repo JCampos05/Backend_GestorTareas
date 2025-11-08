@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const tareaController = require('../controllers/tarea.controller');
+const verificarToken = require('../middlewares/authMiddleware').verificarToken;
+router.use(verificarToken);
 
 // Rutas principales de tareas
 router.post('/', tareaController.crearTarea);

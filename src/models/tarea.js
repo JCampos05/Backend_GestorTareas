@@ -160,7 +160,7 @@ class Tarea {
     static async eliminar(id, idUsuario) {
         try {
             const query = 'DELETE FROM tarea WHERE idTarea = ? AND idUsuario = ?';
-            const [result] = await db.execute(query, [id]);
+            const [result] = await db.execute(query, [id, idUsuario]);
             
             return result.affectedRows > 0;
         } catch (error) {

@@ -9,7 +9,7 @@ const tareaRoutes = require('./routes/tareas.routes');
 const listaRoutes = require('./routes/lista.routes');
 const categoriaRoutes = require('./routes/categoria.routes');
 const usuarioRoutes = require('./routes/usuario.routes');
-const authMiddleware = require('./middlewares/authMiddleware');
+const verificarToken = require('./middlewares/authMiddleware').verificarToken;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -56,9 +56,9 @@ app.get('/healthz', async (req, res) => {
 });
 
 // Rutas de API
-app.use('/api/tareas',authMiddleware, tareaRoutes);
-app.use('/api/listas',authMiddleware, listaRoutes);
-app.use('/api/categorias',authMiddleware, categoriaRoutes);
+app.use('/api/tareas',verificarToken, tareaRoutes);
+app.use('/api/listas',verificarToken, listaRoutes);
+app.use('/api/categorias',verificarToken, categoriaRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 
 // Ruta raíz - sirve el index.html

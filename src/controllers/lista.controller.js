@@ -4,7 +4,7 @@ const listaController = {
     // Crear nueva lista
     crearLista: async (req, res) => {
         try {
-            const { nombre, color, icono, idCategoria } = req.body;
+            const { nombre, color, icono, importante, idCategoria } = req.body;
             const idUsuario = req.usuario.idUsuario;
 
             if (!nombre || nombre.trim() === '') {
@@ -18,6 +18,7 @@ const listaController = {
                 nombre: nombre.trim(),
                 color: color || null,
                 icono: icono || null,
+                importante: importante || false,
                 idCategoria: idCategoria || null,
                 idUsuario
             });
@@ -90,10 +91,10 @@ const listaController = {
     actualizarLista: async (req, res) => {
         try {
             const { id } = req.params;
-            const { nombre, color, icono, idCategoria } = req.body;
+            const { nombre, color, icono, importante, idCategoria } = req.body;
             const idUsuario = req.usuario.idUsuario;
 
-            if (!nombre && !color && !icono && idCategoria === undefined) {
+            if (!nombre && !color && !icono && importante === undefined && idCategoria === undefined) {
                 return res.status(400).json({
                     success: false,
                     message: 'Debe proporcionar al menos un campo para actualizar'
@@ -104,6 +105,7 @@ const listaController = {
                 nombre: nombre?.trim(),
                 color,
                 icono,
+                importante,
                 idCategoria
             }, idUsuario);
 
@@ -207,6 +209,27 @@ const listaController = {
         }
     },
 
+    // Obtener listas sin categoría
+    obtenerSinCategoria: async (req, res) => {
+        try {
+            const idUsuario = req.usuario.idUsuario;
+            const listas = await Lista.obtenerSinCategoria(idUsuario);
+
+            res.status(200).json({
+                success: true,
+                count: listas.length,
+                data: listas
+                });
+        } catch (error) {
+            console.error('Error en obtenerSinCategoria:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener listas sin categoría',
+                error: error.message
+            });
+        }
+    },
+    
     // Obtener estadísticas de la lista
     obtenerEstadisticas: async (req, res) => {
         try {
@@ -223,6 +246,26 @@ const listaController = {
             res.status(500).json({
                 success: false,
                 message: 'Error al obtener estadísticas',
+                error: error.message
+            });
+        }
+    },
+    // Obtener listas importantes
+    obtenerImportantes: async (req, res) => {
+        try {
+            const idUsuario = req.usuario.idUsuario;
+            const listas = await Lista.obtenerImportantes(idUsuario);
+
+            res.status(200).json({
+                success: true,
+                count: listas.length,
+                data: listas
+            });
+        } catch (error) {
+            console.error('Error en obtenerImportantes:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener listas importantes',
                 error: error.message
             });
         }

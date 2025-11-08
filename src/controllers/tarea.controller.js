@@ -92,7 +92,7 @@ const tareaController = {
         try {
             const { id } = req.params;
             const idUsuario = req.usuario.idUsuario;
-            const tarea = await Tarea.obtenerPorId(id);
+            const tarea = await Tarea.obtenerPorId(id, idUsuario);
 
             if (!tarea) {
                 return res.status(404).json({

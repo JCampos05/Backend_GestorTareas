@@ -8,20 +8,22 @@ class Lista {
         this.icono = data.icono || null;
         this.idCategoria = data.idCategoria || null;
         this.fechaCreacion = data.fechaCreacion;
+        this.importante = data.importante || false;
     }
 
     // Crear una nueva lista
     static async crear(listaData) {
         try {
             const query = `
-                INSERT INTO lista (nombre, color, icono, idCategoria, idUsuario)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO lista (nombre, color, icono, importante, idCategoria, idUsuario)
+                VALUES (?, ?, ?, ?, ?, ?)
             `;
             
             const [result] = await db.execute(query, [
                 listaData.nombre,
                 listaData.color || null,
                 listaData.icono || null,
+                listaData.importante || false,
                 listaData.idCategoria || null,
                 listaData.idUsuario
             ]);
@@ -91,6 +93,10 @@ class Lista {
             if (listaData.icono !== undefined) {
                 campos.push('icono = ?');
                 valores.push(listaData.icono);
+            }
+            if (listaData.importante !== undefined) {
+                campos.push('importante = ?');
+                valores.push(listaData.importante);
             }
             if (listaData.idCategoria !== undefined) {
                 campos.push('idCategoria = ?');
@@ -212,6 +218,38 @@ class Lista {
             return rows[0];
         } catch (error) {
             throw new Error(`Error al contar tareas: ${error.message}`);
+        }
+    }
+
+    // Obtener listas sin categoría
+    static async obtenerSinCategoria(idUsuario) {
+        try {
+            const query = `
+                SELECT l.*
+                FROM lista l
+                WHERE l.idCategoria IS NULL AND l.idUsuario = ?
+                ORDER BY l.nombre ASC
+            `;
+            const [rows] = await db.execute(query, [idUsuario]);
+            return rows;
+        } catch (error) {
+            throw new Error(`Error al obtener listas sin categoría: ${error.message}`);
+        }
+    }
+    // Obtener listas importantes
+    static async obtenerImportantes(idUsuario) {
+        try {
+            const query = `
+                SELECT l.*, c.nombre as nombreCategoria
+                FROM lista l
+                LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
+                WHERE l.importante = TRUE AND l.idUsuario = ?
+                ORDER BY l.nombre ASC
+            `;
+            const [rows] = await db.execute(query, [idUsuario]);
+            return rows;
+        } catch (error) {
+            throw new Error(`Error al obtener listas importantes: ${error.message}`);
         }
     }
 }
