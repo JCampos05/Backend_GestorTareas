@@ -58,9 +58,19 @@ class Tarea {
     // Obtener todas las tareas
     static async obtenerTodas(idUsuario) {
         try {
-            const query = 'SELECT * FROM tarea WHERE idUsuario = ? ORDER BY fechaCreacion DESC';
+            const query = `
+                SELECT 
+                    t.*,
+                    l.nombre as nombreLista,
+                    l.icono as iconoLista,
+                    l.color as colorLista
+                FROM tarea t
+                LEFT JOIN lista l ON t.idLista = l.idLista
+                WHERE t.idUsuario = ?
+                ORDER BY t.fechaCreacion DESC
+            `;
             const [rows] = await db.execute(query, [idUsuario]);
-            return rows.map(row => new Tarea(row));
+            return rows;
         } catch (error) {
             throw new Error(`Error al obtener tareas: ${error.message}`);
         }
@@ -69,14 +79,23 @@ class Tarea {
     // Obtener tarea por ID
     static async obtenerPorId(id, idUsuario) {
         try {
-            const query = 'SELECT * FROM tarea WHERE idTarea = ? AND idUsuario = ?';
+            const query = `
+                SELECT 
+                    t.*,
+                    l.nombre as nombreLista,
+                    l.icono as iconoLista,
+                    l.color as colorLista
+                FROM tarea t
+                LEFT JOIN lista l ON t.idLista = l.idLista
+                WHERE t.idTarea = ? AND t.idUsuario = ?
+            `;
             const [rows] = await db.execute(query, [id, idUsuario]);
             
             if (rows.length === 0) {
                 return null;
             }
             
-            return new Tarea(rows[0]);
+            return rows[0];
         } catch (error) {
             throw new Error(`Error al obtener tarea: ${error.message}`);
         }
@@ -184,9 +203,19 @@ class Tarea {
     // Obtener tareas por estado
     static async obtenerPorEstado(estado, idUsuario) {
         try {
-            const query = 'SELECT * FROM tarea WHERE estado = ? AND idUsuario = ? ORDER BY fechaCreacion DESC';
+            const query = `
+                SELECT 
+                    t.*,
+                    l.nombre as nombreLista,
+                    l.icono as iconoLista,
+                    l.color as colorLista
+                FROM tarea t
+                LEFT JOIN lista l ON t.idLista = l.idLista
+                WHERE t.estado = ? AND t.idUsuario = ?
+                ORDER BY t.fechaCreacion DESC
+            `;
             const [rows] = await db.execute(query, [estado, idUsuario]);
-            return rows.map(row => new Tarea(row));
+            return rows;
         } catch (error) {
             throw new Error(`Error al obtener tareas por estado: ${error.message}`);
         }
@@ -195,9 +224,19 @@ class Tarea {
     // Obtener tareas por prioridad
     static async obtenerPorPrioridad(prioridad, idUsuario) {
         try {
-            const query = 'SELECT * FROM tarea WHERE prioridad = ? AND idUsuario = ? ORDER BY fechaCreacion DESC';
+            const query = `
+                SELECT 
+                    t.*,
+                    l.nombre as nombreLista,
+                    l.icono as iconoLista,
+                    l.color as colorLista
+                FROM tarea t
+                LEFT JOIN lista l ON t.idLista = l.idLista
+                WHERE t.prioridad = ? AND t.idUsuario = ?
+                ORDER BY t.fechaCreacion DESC
+            `;
             const [rows] = await db.execute(query, [prioridad, idUsuario]);
-            return rows.map(row => new Tarea(row));
+            return rows;
         } catch (error) {
             throw new Error(`Error al obtener tareas por prioridad: ${error.message}`);
         }
@@ -207,14 +246,20 @@ class Tarea {
     static async obtenerVencidas(idUsuario) {
         try {
             const query = `
-                SELECT * FROM tarea 
-                WHERE fechaVencimiento < CURDATE() 
-                AND estado != 'C'
-                AND idUsuario = ?
-                ORDER BY fechaVencimiento ASC
+                SELECT 
+                    t.*,
+                    l.nombre as nombreLista,
+                    l.icono as iconoLista,
+                    l.color as colorLista
+                FROM tarea t
+                LEFT JOIN lista l ON t.idLista = l.idLista
+                WHERE t.fechaVencimiento < CURDATE() 
+                AND t.estado != 'C'
+                AND t.idUsuario = ?
+                ORDER BY t.fechaVencimiento ASC
             `;
             const [rows] = await db.execute(query, [idUsuario]);
-            return rows.map(row => new Tarea(row));
+            return rows;
         } catch (error) {
             throw new Error(`Error al obtener tareas vencidas: ${error.message}`);
         }
@@ -223,9 +268,19 @@ class Tarea {
     // Obtener tareas por lista
     static async obtenerPorLista(idLista, idUsuario) {
         try {
-            const query = 'SELECT * FROM tarea WHERE idLista = ? AND idUsuario = ? ORDER BY fechaCreacion DESC';
+            const query = `
+                SELECT 
+                    t.*,
+                    l.nombre as nombreLista,
+                    l.icono as iconoLista,
+                    l.color as colorLista
+                FROM tarea t
+                LEFT JOIN lista l ON t.idLista = l.idLista
+                WHERE t.idLista = ? AND t.idUsuario = ?
+                ORDER BY t.fechaCreacion DESC
+            `;
             const [rows] = await db.execute(query, [idLista, idUsuario]);
-            return rows.map(row => new Tarea(row));
+            return rows;
         } catch (error) {
             throw new Error(`Error al obtener tareas por lista: ${error.message}`);
         }
