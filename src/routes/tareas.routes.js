@@ -13,8 +13,10 @@ router.delete('/:id', tareaController.eliminarTarea);
 
 // Rutas específicas
 router.patch('/:id/estado', tareaController.cambiarEstado);
+router.patch('/:id/mi-dia', tareaController.alternarMiDia);
 router.get('/estado/:estado', tareaController.obtenerPorEstado);
 router.get('/prioridad/:prioridad', tareaController.obtenerPorPrioridad);
 router.get('/filtros/vencidas', tareaController.obtenerVencidas);
+router.get('/filtros/mi-dia', tareaController.obtenerMiDia);
 
 module.exports = router;

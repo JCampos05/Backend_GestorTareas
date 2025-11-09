@@ -368,6 +368,64 @@ const tareaController = {
                 error: error.message
             });
         }
+    },
+    // Alternar Mi Día
+    alternarMiDia: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { miDia } = req.body;
+            const idUsuario = req.usuario.idUsuario;
+
+            if (miDia === undefined) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'El campo miDia es requerido'
+                });
+            }
+
+            const tareaActualizada = await Tarea.alternarMiDia(id, miDia, idUsuario);
+
+            if (!tareaActualizada) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Tarea no encontrada'
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                message: 'Mi Día actualizado exitosamente',
+                data: tareaActualizada
+            });
+        } catch (error) {
+            console.error('Error en alternarMiDia:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al actualizar Mi Día',
+                error: error.message
+            });
+        }
+    },
+
+    // Obtener tareas de Mi Día
+    obtenerMiDia: async (req, res) => {
+        try {
+            const idUsuario = req.usuario.idUsuario;
+            const tareas = await Tarea.obtenerMiDia(idUsuario);
+
+            res.status(200).json({
+                success: true,
+                count: tareas.length,
+                data: tareas
+            });
+        } catch (error) {
+            console.error('Error en obtenerMiDia:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener tareas de Mi Día',
+                error: error.message
+            });
+        }
     }
 };
 

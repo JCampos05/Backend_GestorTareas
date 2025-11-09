@@ -23,10 +23,10 @@ class Tarea {
             const query = `
                 INSERT INTO tarea (
                     nombre, descripcion, prioridad, estado, fechaVencimiento, 
-                    pasos, notas, recordatorio, repetir, tipoRepeticion, 
+                    miDia, pasos, notas, recordatorio, repetir, tipoRepeticion, 
                     configRepeticion, idLista, idUsuario
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             
             const [result] = await db.execute(query, [
@@ -35,6 +35,7 @@ class Tarea {
                 tareaData.prioridad || 'N',
                 tareaData.estado || 'P',
                 tareaData.fechaVencimiento || null,
+                tareaData.miDia || false,
                 tareaData.pasos || null,
                 tareaData.notas || null,
                 tareaData.recordatorio || null,
@@ -55,7 +56,7 @@ class Tarea {
         }
     }
 
-    // Obtener todas las tareas
+    // Obtener todas las tareas CON información de la lista
     static async obtenerTodas(idUsuario) {
         try {
             const query = `
@@ -63,7 +64,8 @@ class Tarea {
                     t.*,
                     l.nombre as nombreLista,
                     l.icono as iconoLista,
-                    l.color as colorLista
+                    l.color as colorLista,
+                    l.importante as importante
                 FROM tarea t
                 LEFT JOIN lista l ON t.idLista = l.idLista
                 WHERE t.idUsuario = ?
@@ -76,7 +78,7 @@ class Tarea {
         }
     }
 
-    // Obtener tarea por ID
+    // Obtener tarea por ID CON información de la lista
     static async obtenerPorId(id, idUsuario) {
         try {
             const query = `
@@ -84,7 +86,8 @@ class Tarea {
                     t.*,
                     l.nombre as nombreLista,
                     l.icono as iconoLista,
-                    l.color as colorLista
+                    l.color as colorLista,
+                    l.importante as importante
                 FROM tarea t
                 LEFT JOIN lista l ON t.idLista = l.idLista
                 WHERE t.idTarea = ? AND t.idUsuario = ?
@@ -125,6 +128,10 @@ class Tarea {
             if (tareaData.fechaVencimiento !== undefined) {
                 campos.push('fechaVencimiento = ?');
                 valores.push(tareaData.fechaVencimiento);
+            }
+            if (tareaData.miDia !== undefined){
+                campos.push('miDia = ?');
+                valores.push(tareaData.miDia);
             }
             if (tareaData.pasos !== undefined) {
                 campos.push('pasos = ?');
@@ -200,7 +207,7 @@ class Tarea {
         }
     }
 
-    // Obtener tareas por estado
+    // Obtener tareas por estado CON información de la lista
     static async obtenerPorEstado(estado, idUsuario) {
         try {
             const query = `
@@ -208,7 +215,8 @@ class Tarea {
                     t.*,
                     l.nombre as nombreLista,
                     l.icono as iconoLista,
-                    l.color as colorLista
+                    l.color as colorLista,
+                    l.importante as importante
                 FROM tarea t
                 LEFT JOIN lista l ON t.idLista = l.idLista
                 WHERE t.estado = ? AND t.idUsuario = ?
@@ -221,7 +229,7 @@ class Tarea {
         }
     }
 
-    // Obtener tareas por prioridad
+    // Obtener tareas por prioridad CON información de la lista
     static async obtenerPorPrioridad(prioridad, idUsuario) {
         try {
             const query = `
@@ -229,7 +237,8 @@ class Tarea {
                     t.*,
                     l.nombre as nombreLista,
                     l.icono as iconoLista,
-                    l.color as colorLista
+                    l.color as colorLista,
+                    l.importante as importante
                 FROM tarea t
                 LEFT JOIN lista l ON t.idLista = l.idLista
                 WHERE t.prioridad = ? AND t.idUsuario = ?
@@ -242,7 +251,7 @@ class Tarea {
         }
     }
 
-    // Obtener tareas vencidas
+    // Obtener tareas vencidas CON información de la lista
     static async obtenerVencidas(idUsuario) {
         try {
             const query = `
@@ -250,7 +259,8 @@ class Tarea {
                     t.*,
                     l.nombre as nombreLista,
                     l.icono as iconoLista,
-                    l.color as colorLista
+                    l.color as colorLista,
+                    l.importante as importante
                 FROM tarea t
                 LEFT JOIN lista l ON t.idLista = l.idLista
                 WHERE t.fechaVencimiento < CURDATE() 
@@ -265,7 +275,7 @@ class Tarea {
         }
     }
 
-    // Obtener tareas por lista
+    // Obtener tareas por lista CON información de la lista
     static async obtenerPorLista(idLista, idUsuario) {
         try {
             const query = `
@@ -273,7 +283,8 @@ class Tarea {
                     t.*,
                     l.nombre as nombreLista,
                     l.icono as iconoLista,
-                    l.color as colorLista
+                    l.color as colorLista,
+                    l.importante as importante
                 FROM tarea t
                 LEFT JOIN lista l ON t.idLista = l.idLista
                 WHERE t.idLista = ? AND t.idUsuario = ?
@@ -283,6 +294,39 @@ class Tarea {
             return rows;
         } catch (error) {
             throw new Error(`Error al obtener tareas por lista: ${error.message}`);
+        }
+    }
+
+    // Nuevo método para alternar Mi Día
+    static async alternarMiDia(id, miDia, idUsuario) {
+        try {
+            return await this.actualizar(id, { miDia }, idUsuario);
+        } catch (error) {
+            throw new Error(`Error al alternar Mi Día: ${error.message}`);
+        }
+    }
+
+    // Nuevo método para obtener tareas de Mi Día
+    static async obtenerMiDia(idUsuario) {
+        try {
+            const query = `
+                SELECT 
+                    t.*,
+                    l.nombre as nombreLista,
+                    l.icono as iconoLista,
+                    l.color as colorLista,
+                    l.importante as importante
+                FROM tarea t
+                LEFT JOIN lista l ON t.idLista = l.idLista
+                WHERE t.miDia = TRUE 
+                AND t.estado != 'C'
+                AND t.idUsuario = ?
+                ORDER BY t.fechaCreacion DESC
+            `;
+            const [rows] = await db.execute(query, [idUsuario]);
+            return rows;
+        } catch (error) {
+            throw new Error(`Error al obtener tareas de Mi Día: ${error.message}`);
         }
     }
 }
