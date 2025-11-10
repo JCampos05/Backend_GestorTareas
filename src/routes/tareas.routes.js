@@ -12,6 +12,7 @@ router.put('/:id', tareaController.actualizarTarea);
 router.delete('/:id', tareaController.eliminarTarea);
 
 // Rutas específicas
+router.patch('/:id', tareaController.actualizarTarea);
 router.patch('/:id/estado', tareaController.cambiarEstado);
 router.patch('/:id/mi-dia', tareaController.alternarMiDia);
 router.get('/estado/:estado', tareaController.obtenerPorEstado);
