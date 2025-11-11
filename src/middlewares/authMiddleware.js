@@ -22,4 +22,8 @@ const authMiddleware = (req, res, next) => {
     }
 };
 
-module.exports = { verificarToken: authMiddleware };
+// Exportar directamente la función para que funcione con router.post(ruta, authMiddleware, ...)
+module.exports = authMiddleware;
+
+// También exportar como objeto para compatibilidad con código existente
+module.exports.verificarToken = authMiddleware;

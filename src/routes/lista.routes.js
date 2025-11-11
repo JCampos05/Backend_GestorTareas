@@ -2,21 +2,61 @@ const express = require('express');
 const router = express.Router();
 const listaController = require('../controllers/lista.controller');
 const verificarToken = require('../middlewares/authMiddleware').verificarToken;
+const { verificarPermisoLista } = require('../middlewares/permisosMiddleware');
 
-router.use(verificarToken); 
+// Aplicar middleware de autenticación a todas las rutas
+router.use(verificarToken);
 
-// Rutas principales de listas
+// ============================================
+// RUTAS DE LISTAS (CON PERMISOS COMPARTIDOS)
+// ============================================
+
+// Crear lista (solo usuario autenticado)
 router.post('/', listaController.crearLista);
+
+// Obtener todas las listas del usuario (propias y compartidas)
 router.get('/', listaController.obtenerListas);
+
+// Rutas específicas sin ID (deben ir antes de /:id)
 router.get('/sin-categoria', listaController.obtenerSinCategoria);
 router.get('/importantes', listaController.obtenerImportantes);
-router.get('/:id', listaController.obtenerListaPorId);
-router.put('/:id', listaController.actualizarLista);
-router.delete('/:id', listaController.eliminarLista);
 
-// Rutas específicas
-router.get('/:id/tareas', listaController.obtenerConTareas);
-router.get('/:id/estadisticas', listaController.obtenerEstadisticas);
+// Obtener listas por categoría
 router.get('/categoria/:idCategoria', listaController.obtenerPorCategoria);
+
+// Obtener tareas de una lista (con verificación de permisos)
+router.get(
+    '/:id/tareas',
+    verificarPermisoLista('ver'),
+    listaController.obtenerConTareas
+);
+
+// Obtener estadísticas de una lista
+router.get(
+    '/:id/estadisticas',
+    verificarPermisoLista('ver'),
+    listaController.obtenerEstadisticas
+);
+
+// Obtener una lista específica (con verificación de permisos)
+router.get(
+    '/:id',
+    verificarPermisoLista('ver'),
+    listaController.obtenerListaPorId
+);
+
+// Actualizar lista (requiere permiso de editar)
+router.put(
+    '/:id',
+    verificarPermisoLista('editar'),
+    listaController.actualizarLista
+);
+
+// Eliminar lista (requiere permiso de eliminar)
+router.delete(
+    '/:id',
+    verificarPermisoLista('eliminar'),
+    listaController.eliminarLista
+);
 
 module.exports = router;

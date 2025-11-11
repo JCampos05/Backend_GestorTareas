@@ -9,6 +9,7 @@ const tareaRoutes = require('./routes/tareas.routes');
 const listaRoutes = require('./routes/lista.routes');
 const categoriaRoutes = require('./routes/categoria.routes');
 const usuarioRoutes = require('./routes/usuario.routes');
+const compartirRoutes = require('./routes/compartir.routes');
 const verificarToken = require('./middlewares/authMiddleware').verificarToken;
 
 const app = express();
@@ -60,6 +61,7 @@ app.use('/api/tareas',verificarToken, tareaRoutes);
 app.use('/api/listas',verificarToken, listaRoutes);
 app.use('/api/categorias',verificarToken, categoriaRoutes);
 app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/compartir' , verificarToken, compartirRoutes);
 
 // Ruta raíz - sirve el index.html
 app.get('/', (req, res) => {
