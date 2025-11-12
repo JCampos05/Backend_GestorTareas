@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const listaController = require('../controllers/lista.controller');
+const compartirController = require('../controllers/compartir.controller');
 const verificarToken = require('../middlewares/authMiddleware').verificarToken;
 const { verificarPermisoLista } = require('../middlewares/permisosMiddleware');
 
@@ -23,6 +24,19 @@ router.get('/importantes', listaController.obtenerImportantes);
 
 // Obtener listas por categoría
 router.get('/categoria/:idCategoria', listaController.obtenerPorCategoria);
+
+// ============================================
+// RUTA DE COMPARTIR - DEBE IR ANTES DE /:id
+// ============================================
+router.put(
+    '/:id/compartir',
+    verificarPermisoLista('editar'),
+    compartirController.generarClaveLista
+);
+
+// ============================================
+// RUTAS CON :id (DESPUÉS DE RUTAS ESPECÍFICAS)
+// ============================================
 
 // Obtener tareas de una lista (con verificación de permisos)
 router.get(

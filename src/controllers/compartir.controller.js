@@ -1,14 +1,14 @@
 // src/controllers/compartir.controller.js
 const db = require('../config/config');
-const { 
-    CategoriaCompartida, 
-    ListaCompartida, 
-    Invitacion, 
-    AuditoriaCompartidos 
+const {
+    CategoriaCompartida,
+    ListaCompartida,
+    Invitacion,
+    AuditoriaCompartidos
 } = require('../models/categoriaCompartida');
 
-const { 
-    generarClaveCompartir, 
+const {
+    generarClaveCompartir,
     validarClaveCompartir,
     generarTokenInvitacion,
     esRolValido,
@@ -33,7 +33,7 @@ exports.generarClaveCategoria = async (req, res) => {
             'SELECT * FROM categoria WHERE idCategoria = ? AND idUsuario = ?',
             [idCategoria, idUsuario]
         );
-        
+
         if (catRows.length === 0) {
             return res.status(404).json({ error: 'Categoría no encontrada' });
         }
@@ -41,7 +41,7 @@ exports.generarClaveCategoria = async (req, res) => {
         // Generar clave única
         let clave = generarClaveCompartir();
         let intentos = 0;
-        
+
         while (intentos < 10) {
             const [existe] = await db.execute(
                 'SELECT idCategoria FROM categoria WHERE claveCompartir = ?',
@@ -183,7 +183,7 @@ exports.invitarUsuarioCategoria = async (req, res) => {
             'SELECT * FROM categoria WHERE idCategoria = ?',
             [idCategoria]
         );
-        
+
         if (catRows.length === 0) {
             return res.status(404).json({ error: 'Categoría no encontrada' });
         }
@@ -328,8 +328,8 @@ exports.modificarRolCategoria = async (req, res) => {
         );
 
         if (!actualizado) {
-            return res.status(404).json({ 
-                error: 'Usuario no encontrado o no se puede modificar (es creador)' 
+            return res.status(404).json({
+                error: 'Usuario no encontrado o no se puede modificar (es creador)'
             });
         }
 
@@ -365,8 +365,8 @@ exports.revocarAccesoCategoria = async (req, res) => {
         const revocado = await CategoriaCompartida.revocar(idCategoria, idUsuarioRevocar);
 
         if (!revocado) {
-            return res.status(404).json({ 
-                error: 'Usuario no encontrado o no se puede revocar (es creador)' 
+            return res.status(404).json({
+                error: 'Usuario no encontrado o no se puede revocar (es creador)'
             });
         }
 
@@ -400,8 +400,8 @@ exports.salirDeCategoria = async (req, res) => {
         }
 
         if (compartido.esCreador) {
-            return res.status(403).json({ 
-                error: 'El creador no puede salir de la categoría' 
+            return res.status(403).json({
+                error: 'El creador no puede salir de la categoría'
             });
         }
 
@@ -431,21 +431,51 @@ exports.salirDeCategoria = async (req, res) => {
  */
 exports.generarClaveLista = async (req, res) => {
     try {
-        const { idLista } = req.params;
+        const { id } = req.params;
         const idUsuario = req.usuario.idUsuario;
+
+        console.log('📍 POST /compartir/lista/:id/generar-clave');
+        console.log('📍 Params:', req.params);
+        console.log('📍 ID extraído:', id);
+        console.log('📍 Usuario:', idUsuario);
+
+        // Validar que id existe
+        if (!id || !idUsuario) {
+            console.log('❌ Validación falló:', { id, idUsuario });
+            return res.status(400).json({
+                error: 'Parámetros inválidos',
+                debug: { id, idUsuario }
+            });
+        }
+
+        console.log('✅ Validación pasada, consultando BD...');
 
         const [rows] = await db.execute(
             'SELECT * FROM lista WHERE idLista = ? AND idUsuario = ?',
-            [idLista, idUsuario]
+            [id, idUsuario]
         );
-        
+
+        console.log('📊 Resultados de BD:', rows.length);
+
         if (rows.length === 0) {
-            return res.status(404).json({ error: 'Lista no encontrada' });
+            console.log('❌ Lista no encontrada');
+            return res.status(404).json({
+                error: 'Lista no encontrada o no tienes permisos'
+            });
         }
 
+        console.log('✅ Lista encontrada:', rows[0].nombre);
+
+        // Generar clave única
         let clave = generarClaveCompartir();
+        console.log('🔑 Clave generada:', clave, 'Tipo:', typeof clave);
+
+        if (!clave) {
+            console.log('❌ Error: clave es undefined o null');
+            throw new Error('No se pudo generar la clave de compartir');
+        }
+
         let intentos = 0;
-        
         while (intentos < 10) {
             const [existe] = await db.execute(
                 'SELECT idLista FROM lista WHERE claveCompartir = ?',
@@ -456,31 +486,59 @@ exports.generarClaveLista = async (req, res) => {
             intentos++;
         }
 
-        await db.execute(
+        console.log('🔑 Clave final única:', clave, 'Intentos:', intentos);
+        console.log('💾 Actualizando BD con clave:', clave);
+
+        // ⚠️ CRÍTICO: Actualizar con la MISMA clave que se va a devolver
+        const [updateResult] = await db.execute(
             'UPDATE lista SET claveCompartir = ?, compartible = TRUE WHERE idLista = ?',
-            [clave, idLista]
+            [clave, id]  // ✅ Usar la variable 'clave' que generamos arriba
         );
+
+        console.log('✅ UPDATE ejecutado. Filas afectadas:', updateResult.affectedRows);
+        
+        // ⚠️ VERIFICAR que se guardó correctamente
+        const [verificacion] = await db.execute(
+            'SELECT claveCompartir FROM lista WHERE idLista = ?',
+            [id]
+        );
+        console.log('🔍 Verificación BD - Clave guardada:', verificacion[0]?.claveCompartir);
+        
+        // ⚠️ IMPORTANTE: Usar la clave que realmente quedó en la BD
+        const claveGuardada = verificacion[0]?.claveCompartir || clave;
 
         await AuditoriaCompartidos.registrar({
             tipo: 'lista',
-            idEntidad: idLista,
+            idEntidad: parseInt(id),
             idUsuario,
             accion: 'generar_clave',
-            detalles: { clave }
+            detalles: { clave: claveGuardada }
         });
 
-        res.json({
+        console.log('✅ Auditoría registrada');
+
+        const respuesta = {
             mensaje: 'Clave generada exitosamente',
-            clave,
+            clave: claveGuardada,  // ✅ Devolver la clave que está en la BD
             lista: {
                 idLista: rows[0].idLista,
                 nombre: rows[0].nombre,
-                claveCompartir: clave
+                claveCompartir: claveGuardada  // ✅ Mismo valor
             }
-        });
+        };
+
+        console.log('📤 Enviando respuesta:', respuesta);
+
+        res.json(respuesta);
+
     } catch (error) {
-        console.error('Error al generar clave:', error);
-        res.status(500).json({ error: 'Error al generar clave de compartir' });
+        console.error('❌ ERROR COMPLETO:', error);
+        console.error('Stack:', error.stack);
+        res.status(500).json({
+            error: 'Error al generar clave de compartir',
+            detalles: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 };
 
@@ -857,7 +915,7 @@ exports.aceptarInvitacion = async (req, res) => {
         // Agregar acceso según el tipo
         if (invitacion.tipo === 'categoria') {
             const yaExiste = await CategoriaCompartida.obtener(invitacion.idEntidad, idUsuario);
-            
+
             if (yaExiste) {
                 await CategoriaCompartida.reactivar(invitacion.idEntidad, idUsuario);
                 await db.execute(
@@ -884,7 +942,7 @@ exports.aceptarInvitacion = async (req, res) => {
             });
         } else if (invitacion.tipo === 'lista') {
             const yaExiste = await ListaCompartida.obtener(invitacion.idEntidad, idUsuario);
-            
+
             if (yaExiste) {
                 await db.execute(
                     'UPDATE lista_compartida SET activo = TRUE, aceptado = TRUE, rol = ? WHERE idLista = ? AND idUsuario = ?',
@@ -1011,29 +1069,58 @@ exports.obtenerCategoriasCompartidas = async (req, res) => {
 exports.obtenerListasCompartidas = async (req, res) => {
     try {
         const idUsuario = req.usuario.idUsuario;
+        
+        console.log('🔵 Obteniendo listas compartidas para usuario:', idUsuario);
 
+        // Query para obtener AMBOS tipos de listas compartidas
         const query = `
-            SELECT 
+            SELECT DISTINCT
                 l.*,
-                lc.rol,
-                lc.esCreador,
-                lc.aceptado,
-                lc.fechaCompartido,
+                CASE 
+                    WHEN l.idUsuario = ? THEN 'propietario'
+                    ELSE lc.rol
+                END as rol,
+                CASE 
+                    WHEN l.idUsuario = ? THEN TRUE
+                    ELSE lc.esCreador
+                END as esCreador,
+                CASE 
+                    WHEN l.idUsuario = ? THEN TRUE
+                    ELSE FALSE
+                END as esPropietario,
+                CASE 
+                    WHEN l.idUsuario = ? THEN TRUE
+                    ELSE lc.aceptado
+                END as aceptado,
+                CASE 
+                    WHEN l.idUsuario = ? THEN l.fechaCreacion
+                    ELSE lc.fechaCompartido
+                END as fechaCompartido,
                 u.nombre as nombrePropietario,
-                (l.idUsuario = ?) as esPropietario,
-                c.nombre as nombreCategoria,
-                COUNT(DISTINCT t.idTarea) as cantidadTareas
-            FROM lista_compartida lc
-            JOIN lista l ON lc.idLista = l.idLista
+                u.email as emailPropietario,
+                c.nombre as nombreCategoria
+            FROM lista l
             JOIN usuario u ON l.idUsuario = u.idUsuario
             LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
-            LEFT JOIN tarea t ON l.idLista = t.idLista
-            WHERE lc.idUsuario = ? AND lc.activo = TRUE
-            GROUP BY l.idLista
-            ORDER BY lc.esCreador DESC, l.nombre ASC
+            LEFT JOIN lista_compartida lc ON l.idLista = lc.idLista AND lc.idUsuario = ? AND lc.activo = TRUE
+            WHERE (
+                -- Listas que YO creé y están compartidas
+                (l.idUsuario = ? AND l.compartible = TRUE)
+                OR 
+                -- Listas que OTROS compartieron CONMIGO
+                (lc.idUsuario = ? AND lc.activo = TRUE AND lc.aceptado = TRUE)
+            )
+            ORDER BY l.nombre ASC
         `;
 
-        const [rows] = await db.execute(query, [idUsuario, idUsuario]);
+        const [rows] = await db.execute(query, [
+            idUsuario, idUsuario, idUsuario, idUsuario, idUsuario, // Para los CASE
+            idUsuario, // Para el LEFT JOIN
+            idUsuario, // Para la primera condición del WHERE
+            idUsuario  // Para la segunda condición del WHERE
+        ]);
+        
+        console.log('🟢 Listas compartidas encontradas:', rows.length);
 
         res.json({
             listas: rows.map(lista => ({
@@ -1041,19 +1128,24 @@ exports.obtenerListasCompartidas = async (req, res) => {
                 nombre: lista.nombre,
                 color: lista.color,
                 icono: lista.icono,
+                importante: lista.importante,
+                compartible: lista.compartible,
+                claveCompartir: lista.claveCompartir,
+                idCategoria: lista.idCategoria,
                 rol: lista.rol,
                 esCreador: lista.esCreador,
-                esPropietario: lista.esPropietario,
+                esPropietario: !!lista.esPropietario,
                 aceptado: lista.aceptado,
                 fechaCompartido: lista.fechaCompartido,
                 nombrePropietario: lista.nombrePropietario,
+                emailPropietario: lista.emailPropietario,
                 nombreCategoria: lista.nombreCategoria,
-                cantidadTareas: lista.cantidadTareas,
-                claveCompartir: lista.claveCompartir
+                fechaCreacion: lista.fechaCreacion,
+                fechaActualizacion: lista.fechaActualizacion
             }))
         });
     } catch (error) {
-        console.error('Error al obtener listas compartidas:', error);
+        console.error('❌ Error al obtener listas compartidas:', error);
         res.status(500).json({ error: 'Error al obtener listas compartidas' });
     }
 };
@@ -1151,4 +1243,106 @@ exports.infoCompartidosLista = async (req, res) => {
     }
 };
 
+// Descompartir categoría
+exports.descompartirCategoria = async (req, res) => {
+    try {
+        const { idCategoria } = req.params;
+        const idUsuario = req.usuario.idUsuario; // ✅ Cambiar req.user por req.usuario
+
+        // Verificar que el usuario sea propietario
+        const [catRows] = await db.execute(
+            'SELECT * FROM categoria WHERE idCategoria = ? AND idUsuario = ?',
+            [idCategoria, idUsuario]
+        );
+
+        if (catRows.length === 0) {
+            return res.status(403).json({
+                error: 'No tienes permisos para descompartir esta categoría'
+            });
+        }
+
+        // Eliminar todos los compartidos de la categoría (excepto el propietario)
+        await db.execute(
+            'DELETE FROM categoria_compartida WHERE idCategoria = ?',
+            [idCategoria]
+        );
+
+        // Limpiar la clave de compartir
+        await db.execute(
+            'UPDATE categoria SET claveCompartir = NULL, compartible = false WHERE idCategoria = ?',
+            [idCategoria]
+        );
+
+        await AuditoriaCompartidos.registrar({
+            tipo: 'categoria',
+            idEntidad: idCategoria,
+            idUsuario,
+            accion: 'descompartir',
+            detalles: {}
+        });
+
+        res.json({
+            mensaje: 'Categoría descompartida exitosamente',
+            idCategoria
+        });
+    } catch (error) {
+        console.error('Error al descompartir categoría:', error);
+        res.status(500).json({ error: 'Error al descompartir categoría' });
+    }
+};
+
+// Descompartir lista 
+exports.descompartirLista = async (req, res) => {
+    try {
+        const { idLista } = req.params;
+        const idUsuario = req.usuario.idUsuario; // ✅ Cambiar req.user por req.usuario
+
+        console.log('🔵 Descompartiendo lista:', idLista, 'Usuario:', idUsuario);
+
+        // Verificar que el usuario sea propietario
+        const [listaRows] = await db.execute(
+            'SELECT * FROM lista WHERE idLista = ? AND idUsuario = ?',
+            [idLista, idUsuario]
+        );
+
+        if (listaRows.length === 0) {
+            return res.status(403).json({
+                error: 'No tienes permisos para descompartir esta lista'
+            });
+        }
+
+        // Eliminar todos los compartidos de la lista
+        await db.execute(
+            'DELETE FROM lista_compartida WHERE idLista = ?',
+            [idLista]
+        );
+
+        // Limpiar la clave de compartir y marcar como no compartible
+        await db.execute(
+            'UPDATE lista SET claveCompartir = NULL, compartible = false WHERE idLista = ?',
+            [idLista]
+        );
+
+        await AuditoriaCompartidos.registrar({
+            tipo: 'lista',
+            idEntidad: idLista,
+            idUsuario,
+            accion: 'descompartir',
+            detalles: {}
+        });
+
+        console.log('✅ Lista descompartida exitosamente');
+
+        res.json({
+            mensaje: 'Lista descompartida exitosamente',
+            idLista
+        });
+    } catch (error) {
+        console.error('❌ Error al descompartir lista:', error);
+        res.status(500).json({ 
+            error: 'Error al descompartir lista',
+            detalles: error.message 
+        });
+    }
+};
 module.exports = exports;

@@ -62,6 +62,21 @@ router.post(
     compartirController.salirDeCategoria
 );
 
+// Descompartir categoría (revocar todos los accesos)
+router.post(
+    '/categoria/:idCategoria/descompartir',
+    authMiddleware,
+    esAdminCategoria,
+    compartirController.descompartirCategoria
+);
+
+// Descompartir lista (revocar todos los accesos)
+router.post(
+    '/lista/:idLista/descompartir',
+    authMiddleware,
+    esAdminLista,
+    compartirController.descompartirLista
+);
 // ============================================
 // RUTAS DE LISTAS COMPARTIDAS
 // ============================================

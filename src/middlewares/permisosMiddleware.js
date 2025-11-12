@@ -169,7 +169,8 @@ const verificarPermisoCategoria = (accion) => {
 const verificarPermisoLista = (accion) => {
     return async (req, res, next) => {
         try {
-            const { id: idLista } = req.params;
+            const { id } = req.params;
+            const idLista = id;
             const idUsuario = req.usuario.idUsuario;
 
             // Obtener la lista con información de categoría
