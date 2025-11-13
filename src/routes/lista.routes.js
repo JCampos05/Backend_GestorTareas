@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const listaController = require('../controllers/lista.controller');
-const compartirController = require('../controllers/compartir.controller');
 const verificarToken = require('../middlewares/authMiddleware').verificarToken;
 const { verificarPermisoLista } = require('../middlewares/permisosMiddleware');
 
@@ -18,7 +17,7 @@ router.post('/', listaController.crearLista);
 // Obtener todas las listas del usuario (propias y compartidas)
 router.get('/', listaController.obtenerListas);
 
-// Rutas específicas sin ID (deben ir antes de /:id)
+// Rutas específicas sin ID (deben ir antes de /:idLista)
 router.get('/sin-categoria', listaController.obtenerSinCategoria);
 router.get('/importantes', listaController.obtenerImportantes);
 
@@ -26,49 +25,40 @@ router.get('/importantes', listaController.obtenerImportantes);
 router.get('/categoria/:idCategoria', listaController.obtenerPorCategoria);
 
 // ============================================
-// RUTA DE COMPARTIR - DEBE IR ANTES DE /:id
-// ============================================
-router.put(
-    '/:id/compartir',
-    verificarPermisoLista('editar'),
-    compartirController.generarClaveLista
-);
-
-// ============================================
-// RUTAS CON :id (DESPUÉS DE RUTAS ESPECÍFICAS)
+// RUTAS CON :idLista (DESPUÉS DE RUTAS ESPECÍFICAS)
 // ============================================
 
 // Obtener tareas de una lista (con verificación de permisos)
 router.get(
-    '/:id/tareas',
+    '/:idLista/tareas',
     verificarPermisoLista('ver'),
     listaController.obtenerConTareas
 );
 
 // Obtener estadísticas de una lista
 router.get(
-    '/:id/estadisticas',
+    '/:idLista/estadisticas',
     verificarPermisoLista('ver'),
     listaController.obtenerEstadisticas
 );
 
 // Obtener una lista específica (con verificación de permisos)
 router.get(
-    '/:id',
+    '/:idLista',
     verificarPermisoLista('ver'),
     listaController.obtenerListaPorId
 );
 
 // Actualizar lista (requiere permiso de editar)
 router.put(
-    '/:id',
+    '/:idLista',
     verificarPermisoLista('editar'),
     listaController.actualizarLista
 );
 
 // Eliminar lista (requiere permiso de eliminar)
 router.delete(
-    '/:id',
+    '/:idLista',
     verificarPermisoLista('eliminar'),
     listaController.eliminarLista
 );

@@ -126,3 +126,23 @@ CREATE INDEX idx_lista_usuario_activo ON lista_compartida(idUsuario, activo, ace
 -- 3. Otro usuario usa la clave -> Se crea registro en categoria_compartida con rol asignado
 -- 4. Usuario invita por email -> Se crea registro en invitacion con token único
 -- 5. Invitado acepta -> Se actualiza invitacion.aceptada y se crea en categoria_compartida
+
+
+-- Crear tabla de notificaciones
+CREATE TABLE notificaciones (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  id_usuario INT NOT NULL,
+  tipo ENUM('invitacion_lista', 'tarea_asignada', 'comentario', 'otro') NOT NULL,
+  titulo VARCHAR(255) NOT NULL,
+  mensaje TEXT NOT NULL,
+  datos_adicionales JSON DEFAULT NULL,
+  leida BOOLEAN DEFAULT FALSE,
+  fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  CONSTRAINT notificaciones_ibfk_1 
+    FOREIGN KEY (id_usuario) 
+    REFERENCES usuario(idUsuario) 
+    ON DELETE CASCADE,
+  INDEX idx_usuario_leida (id_usuario, leida),
+  INDEX idx_fecha (fecha_creacion)
+) ;

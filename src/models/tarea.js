@@ -17,7 +17,57 @@ class Tarea {
         this.configRepeticion = data.configRepeticion || null;
         this.idLista = data.idLista || null;
     }
+    // Método helper para verificar permisos
+    static async verificarPermisos(idTarea, idUsuario, accion) {
+        try {
+            const [tareaRows] = await db.execute(
+                'SELECT t.*, l.idUsuario as idPropietarioLista FROM tarea t LEFT JOIN lista l ON t.idLista = l.idLista WHERE t.idTarea = ?',
+                [idTarea]
+            );
 
+            if (tareaRows.length === 0) {
+                return { permiso: false, motivo: 'Tarea no encontrada' };
+            }
+
+            const tarea = tareaRows[0];
+
+            if (tarea.idUsuario === idUsuario) {
+                return { permiso: true, tarea };
+            }
+
+            if (tarea.idPropietarioLista === idUsuario) {
+                return { permiso: true, tarea };
+            }
+
+            if (tarea.idLista) {
+                const [permisosRows] = await db.execute(
+                    `SELECT rol FROM lista_compartida 
+                    WHERE idLista = ? AND idUsuario = ? AND activo = TRUE AND aceptado = TRUE`,
+                    [tarea.idLista, idUsuario]
+                );
+
+                if (permisosRows.length > 0) {
+                    const rol = permisosRows[0].rol;
+
+                    const permisosRol = {
+                        ver: ['admin', 'editor', 'colaborador', 'visor'],
+                        editar: ['admin', 'editor', 'colaborador'],
+                        eliminar: ['admin', 'editor']
+                    };
+
+                    if (permisosRol[accion]?.includes(rol)) {
+                        return { permiso: true, tarea, rol };
+                    }
+
+                    return { permiso: false, motivo: `Rol "${rol}" no permite ${accion}`, rol };
+                }
+            }
+
+            return { permiso: false, motivo: 'Sin permisos' };
+        } catch (error) {
+            return { permiso: false, motivo: 'Error' };
+        }
+    }
     static async crear(tareaData) {
         try {
             const query = `
@@ -28,7 +78,7 @@ class Tarea {
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
-            
+
             const [result] = await db.execute(query, [
                 tareaData.nombre,
                 tareaData.descripcion || null,
@@ -81,6 +131,12 @@ class Tarea {
     // Obtener tarea por ID CON información de la lista
     static async obtenerPorId(id, idUsuario) {
         try {
+            // ✅ Verificar permisos de lectura
+            const { permiso, tarea } = await this.verificarPermisos(id, idUsuario, 'ver');
+
+            if (!permiso) {
+                return null;
+            }
             const query = `
                 SELECT 
                     t.*,
@@ -93,11 +149,11 @@ class Tarea {
                 WHERE t.idTarea = ? AND t.idUsuario = ?
             `;
             const [rows] = await db.execute(query, [id, idUsuario]);
-            
+
             if (rows.length === 0) {
                 return null;
             }
-            
+
             return rows[0];
         } catch (error) {
             throw new Error(`Error al obtener tarea: ${error.message}`);
@@ -106,6 +162,12 @@ class Tarea {
 
     static async actualizar(id, tareaData, idUsuario) {
         try {
+            const { permiso, tarea, motivo } = await this.verificarPermisos(id, idUsuario, 'editar');
+
+            if (!permiso) {
+                console.log('❌ Sin permisos para actualizar:', motivo);
+                return null;
+            }
             const campos = [];
             const valores = [];
 
@@ -129,7 +191,7 @@ class Tarea {
                 campos.push('fechaVencimiento = ?');
                 valores.push(tareaData.fechaVencimiento);
             }
-            if (tareaData.miDia !== undefined){
+            if (tareaData.miDia !== undefined) {
                 campos.push('miDia = ?');
                 valores.push(tareaData.miDia);
             }
@@ -168,15 +230,24 @@ class Tarea {
 
             valores.push(id);
             valores.push(idUsuario);
-            const query = `UPDATE tarea SET ${campos.join(', ')} WHERE idTarea = ? AND idUsuario = ?`;
-            
+            const query = `UPDATE tarea SET ${campos.join(', ')} WHERE idTarea = ?`;
+
             const [result] = await db.execute(query, valores);
-            
+
             if (result.affectedRows === 0) {
                 return null;
             }
+            // Retornar tarea actualizada
+            const [tareaActualizada] = await db.execute(
+                `SELECT t.*, l.nombre as nombreLista, l.icono as iconoLista, 
+                    l.color as colorLista, l.importante as importante
+                    FROM tarea t LEFT JOIN lista l ON t.idLista = l.idLista 
+                    WHERE t.idTarea = ?`,
+                [id]
+            );
 
-            return await this.obtenerPorId(id, idUsuario);
+            return tareaActualizada[0];
+            //return await this.obtenerPorId(id, idUsuario);
         } catch (error) {
             throw new Error(`Error al actualizar tarea: ${error.message}`);
         }
@@ -185,9 +256,18 @@ class Tarea {
     // Eliminar tarea
     static async eliminar(id, idUsuario) {
         try {
-            const query = 'DELETE FROM tarea WHERE idTarea = ? AND idUsuario = ?';
-            const [result] = await db.execute(query, [id, idUsuario]);
-            
+            // ✅ Verificar permisos primero (solo admin y editor pueden eliminar)
+            const { permiso, motivo } = await this.verificarPermisos(id, idUsuario, 'eliminar');
+
+            if (!permiso) {
+                console.log('❌ Sin permisos para eliminar:', motivo);
+                return false;
+            }
+
+            // ✅ Eliminar SIN filtro de idUsuario
+            const query = 'DELETE FROM tarea WHERE idTarea = ?';
+            const [result] = await db.execute(query, [id]);
+
             return result.affectedRows > 0;
         } catch (error) {
             throw new Error(`Error al eliminar tarea: ${error.message}`);
@@ -195,15 +275,87 @@ class Tarea {
     }
 
     // Cambiar estado de tarea
-    static async cambiarEstado(id, nuevoEstado, idUsuario) {
+    static async cambiarEstado(id, estado, idUsuario) {
         try {
-            if (!['C', 'P', 'N'].includes(nuevoEstado)) {
-                throw new Error('Estado inválido');
+            console.log('🔧 Tarea.cambiarEstado:', { id, estado, idUsuario });
+
+            // 1️⃣ Primero obtener la tarea para saber si está en una lista
+            const [tareaRows] = await db.execute(
+                'SELECT t.*, l.idUsuario as idPropietarioLista FROM tarea t LEFT JOIN lista l ON t.idLista = l.idLista WHERE t.idTarea = ?',
+                [id]
+            );
+
+            if (tareaRows.length === 0) {
+                console.log('❌ Tarea no encontrada:', id);
+                return null;
             }
 
-            return await this.actualizar(id, { estado: nuevoEstado }, idUsuario);
+            const tarea = tareaRows[0];
+            console.log('📋 Tarea encontrada:', { idTarea: tarea.idTarea, idUsuario: tarea.idUsuario, idLista: tarea.idLista });
+
+            // 2️⃣ Verificar permisos
+            let tienePermiso = false;
+
+            // Es el propietario de la tarea
+            if (tarea.idUsuario === idUsuario) {
+                console.log('✅ Es propietario de la tarea');
+                tienePermiso = true;
+            }
+            // Es el propietario de la lista
+            else if (tarea.idPropietarioLista === idUsuario) {
+                console.log('✅ Es propietario de la lista');
+                tienePermiso = true;
+            }
+            // Verificar permisos compartidos
+            else if (tarea.idLista) {
+                const [permisosRows] = await db.execute(
+                    `SELECT rol FROM lista_compartida 
+         WHERE idLista = ? AND idUsuario = ? AND activo = TRUE AND aceptado = TRUE`,
+                    [tarea.idLista, idUsuario]
+                );
+
+                if (permisosRows.length > 0) {
+                    const rol = permisosRows[0].rol;
+                    console.log('🔍 Rol en lista compartida:', rol);
+
+                    // admin, editor, colaborador pueden editar
+                    if (['admin', 'editor', 'colaborador'].includes(rol)) {
+                        console.log('✅ Tiene permisos por rol compartido');
+                        tienePermiso = true;
+                    }
+                }
+            }
+
+            if (!tienePermiso) {
+                console.log('❌ Sin permisos para modificar esta tarea');
+                return null;
+            }
+
+            // 3️⃣ Actualizar estado
+            console.log('💾 Actualizando estado en BD...');
+            const [result] = await db.execute(
+                'UPDATE tarea SET estado = ? WHERE idTarea = ?',
+                [estado, id]
+            );
+
+            if (result.affectedRows === 0) {
+                console.log('❌ No se actualizó ninguna fila');
+                return null;
+            }
+
+            console.log('✅ Estado actualizado correctamente');
+
+            // 4️⃣ Retornar tarea actualizada
+            const [tareaActualizada] = await db.execute(
+                'SELECT * FROM tarea WHERE idTarea = ?',
+                [id]
+            );
+
+            return tareaActualizada[0];
+
         } catch (error) {
-            throw new Error(`Error al cambiar estado: ${error.message}`);
+            console.error('❌ Error en Tarea.cambiarEstado:', error);
+            throw error;
         }
     }
 

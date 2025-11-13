@@ -43,7 +43,7 @@ const listaController = {
         try {
             const idUsuario = req.usuario.idUsuario;
             const listas = await Lista.obtenerTodas(idUsuario);
-            
+
             res.status(200).json({
                 success: true,
                 count: listas.length,
@@ -60,37 +60,37 @@ const listaController = {
     },
 
     // Obtener lista por ID
-obtenerListaPorId: async (req, res) => {
-    try {
-        const { id } = req.params;
-        // ✅ El middleware verificarPermisoLista('ver') ya validó acceso
-        const lista = await Lista.obtenerPorId(id);
+    obtenerListaPorId: async (req, res) => {
+        try {
+            const { idLista } = req.params;
+            // ✅ El middleware verificarPermisoLista('ver') ya validó acceso
+            const lista = await Lista.obtenerPorId(idLista);
 
-        if (!lista) {
-            return res.status(404).json({
+            if (!lista) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Lista no encontrada'
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                data: lista
+            });
+        } catch (error) {
+            console.error('Error en obtenerListaPorId:', error);
+            res.status(500).json({
                 success: false,
-                message: 'Lista no encontrada'
+                message: 'Error al obtener la lista',
+                error: error.message
             });
         }
-
-        res.status(200).json({
-            success: true,
-            data: lista
-        });
-    } catch (error) {
-        console.error('Error en obtenerListaPorId:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error al obtener la lista',
-            error: error.message
-        });
-    }
-},
+    },
 
     // Actualizar lista
     actualizarLista: async (req, res) => {
         try {
-            const { id } = req.params;
+            const { idLista } = req.params;
             const { nombre, color, icono, importante, idCategoria } = req.body;
             const idUsuario = req.usuario.idUsuario;
 
@@ -101,7 +101,7 @@ obtenerListaPorId: async (req, res) => {
                 });
             }
 
-            const listaActualizada = await Lista.actualizar(id, {
+            const listaActualizada = await Lista.actualizar(idLista, {
                 nombre: nombre?.trim(),
                 color,
                 icono,
@@ -134,9 +134,9 @@ obtenerListaPorId: async (req, res) => {
     // Eliminar lista
     eliminarLista: async (req, res) => {
         try {
-            const { id } = req.params;
+            const { idLista } = req.params;
             const idUsuario = req.usuario.idUsuario;
-            const eliminada = await Lista.eliminar(id, idUsuario);
+            const eliminada = await Lista.eliminar(idLista, idUsuario);
 
             if (!eliminada) {
                 return res.status(404).json({
@@ -160,32 +160,32 @@ obtenerListaPorId: async (req, res) => {
     },
 
     // Obtener lista con sus tareas
- obtenerConTareas: async (req, res) => {
-    try {
-        const { id } = req.params;
-        // ✅ El middleware verificarPermisoLista('ver') ya validó acceso
-        const lista = await Lista.obtenerConTareas(id);
+    obtenerConTareas: async (req, res) => {
+        try {
+            const { idLista } = req.params;
+            // ✅ El middleware verificarPermisoLista('ver') ya validó acceso
+            const lista = await Lista.obtenerConTareas(idLista);
 
-        if (!lista) {
-            return res.status(404).json({
+            if (!lista) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Lista no encontrada'
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                data: lista
+            });
+        } catch (error) {
+            console.error('Error en obtenerConTareas:', error);
+            res.status(500).json({
                 success: false,
-                message: 'Lista no encontrada'
+                message: 'Error al obtener la lista con tareas',
+                error: error.message
             });
         }
-
-        res.status(200).json({
-            success: true,
-            data: lista
-        });
-    } catch (error) {
-        console.error('Error en obtenerConTareas:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error al obtener la lista con tareas',
-            error: error.message
-        });
-    }
-},
+    },
 
     // Obtener listas por categoría
     obtenerPorCategoria: async (req, res) => {
@@ -219,7 +219,7 @@ obtenerListaPorId: async (req, res) => {
                 success: true,
                 count: listas.length,
                 data: listas
-                });
+            });
         } catch (error) {
             console.error('Error en obtenerSinCategoria:', error);
             res.status(500).json({
@@ -229,27 +229,27 @@ obtenerListaPorId: async (req, res) => {
             });
         }
     },
-    
-    // Obtener estadísticas de la lista
-obtenerEstadisticas: async (req, res) => {
-    try {
-        const { id } = req.params;
-        // ✅ El middleware verificarPermisoLista('ver') ya validó acceso
-        const estadisticas = await Lista.contarTareas(id);
 
-        res.status(200).json({
-            success: true,
-            data: estadisticas
-        });
-    } catch (error) {
-        console.error('Error en obtenerEstadisticas:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error al obtener estadísticas',
-            error: error.message
-        });
-    }
-},
+    // Obtener estadísticas de la lista
+    obtenerEstadisticas: async (req, res) => {
+        try {
+            const { idLista } = req.params;
+            // ✅ El middleware verificarPermisoLista('ver') ya validó acceso
+            const estadisticas = await Lista.contarTareas(idLista);
+
+            res.status(200).json({
+                success: true,
+                data: estadisticas
+            });
+        } catch (error) {
+            console.error('Error en obtenerEstadisticas:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener estadísticas',
+                error: error.message
+            });
+        }
+    },
     // Obtener listas importantes
     obtenerImportantes: async (req, res) => {
         try {

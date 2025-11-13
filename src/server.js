@@ -10,6 +10,8 @@ const listaRoutes = require('./routes/lista.routes');
 const categoriaRoutes = require('./routes/categoria.routes');
 const usuarioRoutes = require('./routes/usuario.routes');
 const compartirRoutes = require('./routes/compartir.routes');
+// ✅ AGREGAR: Importar rutas de notificaciones
+const notificacionRoutes = require('./routes/compartir/notificacion.routes');
 const verificarToken = require('./middlewares/authMiddleware').verificarToken;
 
 const app = express();
@@ -57,11 +59,13 @@ app.get('/healthz', async (req, res) => {
 });
 
 // Rutas de API
-app.use('/api/tareas',verificarToken, tareaRoutes);
-app.use('/api/listas',verificarToken, listaRoutes);
-app.use('/api/categorias',verificarToken, categoriaRoutes);
+app.use('/api/tareas', verificarToken, tareaRoutes);
+app.use('/api/listas', verificarToken, listaRoutes);
+app.use('/api/categorias', verificarToken, categoriaRoutes);
 app.use('/api/usuarios', usuarioRoutes);
-app.use('/api/compartir' , verificarToken, compartirRoutes);
+app.use('/api/compartir', verificarToken, compartirRoutes);
+// ✅ AGREGAR: Rutas específicas para notificaciones
+app.use('/api/compartir/notificaciones', notificacionRoutes);
 
 // Ruta raíz - sirve el index.html
 app.get('/', (req, res) => {
@@ -88,8 +92,9 @@ app.use((err, req, res, next) => {
 
 // Iniciar servidor
 app.listen(PORT, () => {
-    console.log(` Servidor corriendo en http://localhost:${PORT}`);
-    console.log(` API de Tareas disponible en http://localhost:${PORT}/api/tareas`);
+    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`📋 API de Tareas disponible en http://localhost:${PORT}/api/tareas`);
+    console.log(`🔔 API de Notificaciones disponible en http://localhost:${PORT}/api/compartir/notificaciones`);
 });
 
 module.exports = app;

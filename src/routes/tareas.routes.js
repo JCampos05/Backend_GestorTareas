@@ -1,68 +1,29 @@
 const express = require('express');
 const router = express.Router();
 const tareaController = require('../controllers/tarea.controller');
-const verificarToken = require('../middlewares/authMiddleware').verificarToken;
-const { verificarPermisoTarea } = require('../middlewares/permisosMiddleware');
+const authMiddleware = require('../middlewares/authMiddleware');
+const { verificarPermisoTarea, puedeCrearTareaEnLista } = require('../middlewares/permisosMiddleware');
 
-// Aplicar middleware de autenticación a todas las rutas
-router.use(verificarToken);
+router.post('/', authMiddleware, puedeCrearTareaEnLista, tareaController.crearTarea);
+router.get('/', authMiddleware, tareaController.obtenerTareas);
+router.get('/filtros/vencidas', authMiddleware, tareaController.obtenerVencidas);
+router.get('/filtros/mi-dia', authMiddleware, tareaController.obtenerMiDia);
+router.get('/estado/:estado', authMiddleware, tareaController.obtenerPorEstado);
+router.get('/prioridad/:prioridad', authMiddleware, tareaController.obtenerPorPrioridad);
+router.get('/lista/:idLista', authMiddleware, tareaController.obtenerPorLista);
 
-// ============================================
-// RUTAS DE TAREAS (CON PERMISOS COMPARTIDOS)
-// ============================================
+// TEST: Sin middleware de permisos
+router.patch('/:id/estado', (req, res, next) => {
+  console.log('🎯 RUTA /:id/estado ALCANZADA');
+  console.log('📦 Body:', req.body);
+  console.log('🆔 ID:', req.params.id);
+  next();
+}, authMiddleware, tareaController.cambiarEstado);
 
-// Crear tarea (solo usuario autenticado)
-router.post('/', tareaController.crearTarea);
+router.patch('/:id/mi-dia', authMiddleware, verificarPermisoTarea('editar'), tareaController.alternarMiDia);
 
-// Obtener todas las tareas del usuario (propias y compartidas)
-router.get('/', tareaController.obtenerTareas);
-
-// Rutas específicas sin ID (deben ir antes de /:id)
-router.get('/estado/:estado', tareaController.obtenerPorEstado);
-router.get('/prioridad/:prioridad', tareaController.obtenerPorPrioridad);
-router.get('/filtros/vencidas', tareaController.obtenerVencidas);
-router.get('/filtros/mi-dia', tareaController.obtenerMiDia);
-
-// Cambiar estado de tarea (requiere permiso de editar)
-router.patch(
-    '/:id/estado',
-    verificarPermisoTarea('editar'),
-    tareaController.cambiarEstado
-);
-
-// Alternar "Mi día" (requiere permiso de editar)
-router.patch(
-    '/:id/mi-dia',
-    verificarPermisoTarea('editar'),
-    tareaController.alternarMiDia
-);
-
-// Obtener una tarea específica (con verificación de permisos)
-router.get(
-    '/:id',
-    verificarPermisoTarea('ver'),
-    tareaController.obtenerTareaPorId
-);
-
-// Actualizar tarea (requiere permiso de editar)
-router.put(
-    '/:id',
-    verificarPermisoTarea('editar'),
-    tareaController.actualizarTarea
-);
-
-// Actualizar tarea parcialmente (requiere permiso de editar)
-router.patch(
-    '/:id',
-    verificarPermisoTarea('editar'),
-    tareaController.actualizarTarea
-);
-
-// Eliminar tarea (requiere permiso de eliminar)
-router.delete(
-    '/:id',
-    verificarPermisoTarea('eliminar'),
-    tareaController.eliminarTarea
-);
+router.get('/:id', authMiddleware, verificarPermisoTarea('ver'), tareaController.obtenerTareaPorId);
+router.put('/:id', authMiddleware, verificarPermisoTarea('editar'), tareaController.actualizarTarea);
+router.delete('/:id', authMiddleware, verificarPermisoTarea('eliminar'), tareaController.eliminarTarea);
 
 module.exports = router;

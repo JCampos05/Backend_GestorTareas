@@ -3,10 +3,10 @@ const Tarea = require('../models/tarea');
 const tareaController = {
     crearTarea: async (req, res) => {
         try {
-            const { 
-                nombre, descripcion, prioridad, estado, fechaVencimiento, 
-                pasos, notas, recordatorio, repetir, tipoRepeticion, 
-                configRepeticion, idLista 
+            const {
+                nombre, descripcion, prioridad, estado, fechaVencimiento,
+                pasos, notas, recordatorio, repetir, tipoRepeticion,
+                configRepeticion, idLista
             } = req.body;
 
             const idUsuario = req.usuario.idUsuario;
@@ -71,7 +71,7 @@ const tareaController = {
         try {
             const idUsuario = req.usuario.idUsuario;
             const tareas = await Tarea.obtenerTodas(idUsuario);
-            
+
             res.status(200).json({
                 success: true,
                 count: tareas.length,
@@ -119,17 +119,17 @@ const tareaController = {
         try {
             const { id } = req.params;
             const idUsuario = req.usuario.idUsuario;
-            const { 
+            const {
                 nombre, descripcion, prioridad, estado, fechaVencimiento,
                 pasos, notas, recordatorio, repetir, tipoRepeticion,
                 configRepeticion, idLista
             } = req.body;
 
             // Validar que exista al menos un campo para actualizar
-            const hayCambios = nombre || descripcion || prioridad || estado || 
-                                fechaVencimiento || pasos || notas || recordatorio || 
-                                repetir !== undefined || tipoRepeticion || 
-                                configRepeticion || idLista !== undefined;
+            const hayCambios = nombre || descripcion || prioridad || estado ||
+                fechaVencimiento || pasos || notas || recordatorio ||
+                repetir !== undefined || tipoRepeticion ||
+                configRepeticion || idLista !== undefined;
 
             if (!hayCambios) {
                 return res.status(400).json({
@@ -197,7 +197,7 @@ const tareaController = {
             const { id } = req.params;
             const idUsuario = req.usuario.idUsuario;
             const eliminada = await Tarea.eliminar(id, idUsuario);
-            
+
             console.log(id)
             console.log(eliminada)
 
@@ -229,7 +229,10 @@ const tareaController = {
             const { estado } = req.body;
             const idUsuario = req.usuario.idUsuario;
 
+            console.log('📝 cambiarEstado llamado:', { id, estado, idUsuario });
+
             if (!estado) {
+                console.log('❌ Estado no proporcionado');
                 return res.status(400).json({
                     success: false,
                     message: 'El estado es requerido'
@@ -237,28 +240,32 @@ const tareaController = {
             }
 
             if (!['C', 'P', 'N'].includes(estado)) {
+                console.log('❌ Estado inválido:', estado);
                 return res.status(400).json({
                     success: false,
                     message: 'Estado inválido. Use C (Completada), P (Pendiente) o N (En progreso)'
                 });
             }
 
+            console.log('✅ Validaciones pasadas, llamando a Tarea.cambiarEstado...');
             const tareaActualizada = await Tarea.cambiarEstado(id, estado, idUsuario);
 
             if (!tareaActualizada) {
+                console.log('❌ Tarea no encontrada o sin permisos');
                 return res.status(404).json({
                     success: false,
                     message: 'Tarea no encontrada'
                 });
             }
 
+            console.log('✅ Estado actualizado exitosamente');
             res.status(200).json({
                 success: true,
                 message: 'Estado actualizado exitosamente',
                 data: tareaActualizada
             });
         } catch (error) {
-            console.error('Error en cambiarEstado:', error);
+            console.error('❌ Error en cambiarEstado:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al cambiar el estado',

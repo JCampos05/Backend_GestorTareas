@@ -15,9 +15,9 @@ class Lista {
     static async crear(listaData) {
         try {
             const query = `
-                INSERT INTO lista (nombre, color, icono, importante, idCategoria, idUsuario)
-                VALUES (?, ?, ?, ?, ?, ?)
-            `;
+            INSERT INTO lista (nombre, color, icono, importante, idCategoria, idUsuario, compartible)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
 
             const [result] = await db.execute(query, [
                 listaData.nombre,
@@ -25,12 +25,15 @@ class Lista {
                 listaData.icono || null,
                 listaData.importante || false,
                 listaData.idCategoria || null,
-                listaData.idUsuario
+                listaData.idUsuario,
+                listaData.compartible || false
+                // ✅ Ya no necesitamos pasar compartible, está hardcoded como TRUE en el query
             ]);
 
             return {
                 idLista: result.insertId,
                 ...listaData,
+                compartible: listaData.compartible || false,  // ✅ Asegurar que el objeto devuelto tenga compartible
                 fechaCreacion: new Date()
             };
         } catch (error) {
@@ -42,14 +45,49 @@ class Lista {
     static async obtenerTodas(idUsuario) {
         try {
             const query = `
-                SELECT l.*, c.nombre as nombreCategoria
-                FROM lista l
-                LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
-                WHERE l.idUsuario = ?
-                ORDER BY l.fechaCreacion DESC
-            `;
-            const [rows] = await db.execute(query, [idUsuario]);
-            return rows;
+            SELECT DISTINCT
+                l.*,
+                c.nombre as nombreCategoria,
+                CASE 
+                    WHEN l.idUsuario = ? THEN TRUE
+                    ELSE FALSE
+                END as esPropietario,
+                CASE 
+                    WHEN lc.idUsuario = ? AND lc.activo = TRUE AND lc.aceptado = TRUE THEN TRUE
+                    ELSE FALSE
+                END as esCompartidaConmigo
+            FROM lista l
+            LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
+            LEFT JOIN lista_compartida lc ON l.idLista = lc.idLista AND lc.idUsuario = ?
+            WHERE l.idUsuario = ? 
+               OR (lc.idUsuario = ? AND lc.activo = TRUE AND lc.aceptado = TRUE)
+            ORDER BY l.fechaCreacion DESC
+        `;
+
+            const [rows] = await db.execute(query, [
+                idUsuario, // Para esPropietario
+                idUsuario, // Para esCompartidaConmigo
+                idUsuario, // Para el LEFT JOIN
+                idUsuario, // Listas propias (WHERE l.idUsuario)
+                idUsuario  // Listas compartidas conmigo (WHERE lc.idUsuario)
+            ]);
+
+            return rows.map(row => ({
+                idLista: row.idLista,
+                nombre: row.nombre,
+                color: row.color,
+                icono: row.icono,
+                importante: row.importante,
+                compartible: row.compartible,
+                claveCompartir: row.claveCompartir,
+                idCategoria: row.idCategoria,
+                nombreCategoria: row.nombreCategoria,
+                idUsuario: row.idUsuario,
+                esPropietario: !!row.esPropietario,
+                esCompartidaConmigo: !!row.esCompartidaConmigo,
+                fechaCreacion: row.fechaCreacion,
+                fechaActualizacion: row.fechaActualizacion
+            }));
         } catch (error) {
             throw new Error(`Error al obtener listas: ${error.message}`);
         }
