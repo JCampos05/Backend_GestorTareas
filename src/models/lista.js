@@ -42,6 +42,7 @@ class Lista {
     }
 
     // Obtener todas las listas
+    // En lista.js - REEMPLAZAR obtenerTodas
     static async obtenerTodas(idUsuario) {
         try {
             const query = `
@@ -55,7 +56,15 @@ class Lista {
                 CASE 
                     WHEN lc.idUsuario = ? AND lc.activo = TRUE AND lc.aceptado = TRUE THEN TRUE
                     ELSE FALSE
-                END as esCompartidaConmigo
+                END as esCompartidaConmigo,
+                -- ✅ Nueva bandera: si tiene usuarios compartidos
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 FROM lista_compartida lc2 
+                        WHERE lc2.idLista = l.idLista AND lc2.activo = TRUE
+                    ) THEN TRUE
+                    ELSE FALSE
+                END as esCompartida
             FROM lista l
             LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
             LEFT JOIN lista_compartida lc ON l.idLista = lc.idLista AND lc.idUsuario = ?
@@ -65,11 +74,11 @@ class Lista {
         `;
 
             const [rows] = await db.execute(query, [
-                idUsuario, // Para esPropietario
-                idUsuario, // Para esCompartidaConmigo
-                idUsuario, // Para el LEFT JOIN
-                idUsuario, // Listas propias (WHERE l.idUsuario)
-                idUsuario  // Listas compartidas conmigo (WHERE lc.idUsuario)
+                idUsuario,
+                idUsuario,
+                idUsuario,
+                idUsuario,
+                idUsuario
             ]);
 
             return rows.map(row => ({
@@ -85,6 +94,7 @@ class Lista {
                 idUsuario: row.idUsuario,
                 esPropietario: !!row.esPropietario,
                 esCompartidaConmigo: !!row.esCompartidaConmigo,
+                esCompartida: !!row.esCompartida, // ✅ Nueva
                 fechaCreacion: row.fechaCreacion,
                 fechaActualizacion: row.fechaActualizacion
             }));

@@ -20,34 +20,51 @@ class Tarea {
     // Método helper para verificar permisos
     static async verificarPermisos(idTarea, idUsuario, accion) {
         try {
+            console.log(`🔍 Verificando permisos: tarea=${idTarea}, usuario=${idUsuario}, accion=${accion}`);
+
             const [tareaRows] = await db.execute(
                 'SELECT t.*, l.idUsuario as idPropietarioLista FROM tarea t LEFT JOIN lista l ON t.idLista = l.idLista WHERE t.idTarea = ?',
                 [idTarea]
             );
 
             if (tareaRows.length === 0) {
+                console.log('❌ Tarea no encontrada');
                 return { permiso: false, motivo: 'Tarea no encontrada' };
             }
 
             const tarea = tareaRows[0];
+            console.log('📋 Tarea encontrada:', {
+                idTarea: tarea.idTarea,
+                idUsuario: tarea.idUsuario,
+                idLista: tarea.idLista,
+                idPropietarioLista: tarea.idPropietarioLista
+            });
 
+            // 1️⃣ Es propietario de la tarea
             if (tarea.idUsuario === idUsuario) {
+                console.log('✅ Es propietario de la tarea');
                 return { permiso: true, tarea };
             }
 
+            // 2️⃣ Es propietario de la lista
             if (tarea.idPropietarioLista === idUsuario) {
+                console.log('✅ Es propietario de la lista');
                 return { permiso: true, tarea };
             }
 
+            // 3️⃣ Verificar permisos compartidos
             if (tarea.idLista) {
+                console.log('🔍 Verificando permisos compartidos en lista', tarea.idLista);
+
                 const [permisosRows] = await db.execute(
                     `SELECT rol FROM lista_compartida 
-                    WHERE idLista = ? AND idUsuario = ? AND activo = TRUE AND aceptado = TRUE`,
+                WHERE idLista = ? AND idUsuario = ? AND activo = TRUE AND aceptado = TRUE`,
                     [tarea.idLista, idUsuario]
                 );
 
                 if (permisosRows.length > 0) {
                     const rol = permisosRows[0].rol;
+                    console.log('👤 Rol encontrado:', rol);
 
                     const permisosRol = {
                         ver: ['admin', 'editor', 'colaborador', 'visor'],
@@ -56,16 +73,23 @@ class Tarea {
                     };
 
                     if (permisosRol[accion]?.includes(rol)) {
+                        console.log(`✅ Rol "${rol}" tiene permiso para "${accion}"`);
                         return { permiso: true, tarea, rol };
                     }
 
+                    console.log(`❌ Rol "${rol}" NO tiene permiso para "${accion}"`);
                     return { permiso: false, motivo: `Rol "${rol}" no permite ${accion}`, rol };
                 }
+
+                console.log('❌ No hay permisos compartidos');
             }
 
+            console.log('❌ Sin permisos');
             return { permiso: false, motivo: 'Sin permisos' };
+
         } catch (error) {
-            return { permiso: false, motivo: 'Error' };
+            console.error('❌ Error en verificarPermisos:', error);
+            return { permiso: false, motivo: 'Error al verificar permisos', error: error.message };
         }
     }
     static async crear(tareaData) {
@@ -146,9 +170,9 @@ class Tarea {
                     l.importante as importante
                 FROM tarea t
                 LEFT JOIN lista l ON t.idLista = l.idLista
-                WHERE t.idTarea = ? AND t.idUsuario = ?
+                WHERE t.idTarea = ? 
             `;
-            const [rows] = await db.execute(query, [id, idUsuario]);
+            const [rows] = await db.execute(query, [id]);
 
             if (rows.length === 0) {
                 return null;
@@ -229,7 +253,7 @@ class Tarea {
             }
 
             valores.push(id);
-            valores.push(idUsuario);
+            //valores.push(idUsuario);
             const query = `UPDATE tarea SET ${campos.join(', ')} WHERE idTarea = ?`;
 
             const [result] = await db.execute(query, valores);

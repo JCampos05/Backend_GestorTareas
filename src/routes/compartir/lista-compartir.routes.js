@@ -40,7 +40,7 @@ router.get(
 router.put(
     '/:idLista/usuario/:idUsuarioModificar/rol',
     authMiddleware,
-    esAdminLista,
+    /*esAdminLista,*/
     listaCompartirController.modificarRolLista
 );
 

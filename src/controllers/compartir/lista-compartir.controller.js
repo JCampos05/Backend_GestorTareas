@@ -52,10 +52,10 @@ const normalizarTipoNotificacion = (tipo) => {
  */
 exports.generarClaveLista = async (req, res) => {
     const connection = await db.getConnection();
-    
+
     try {
         await connection.beginTransaction();
-        
+
         const { idLista } = req.params;
         const idUsuario = req.usuario.idUsuario;
 
@@ -524,76 +524,122 @@ exports.modificarRolLista = async (req, res) => {
 
         if (!['admin', 'editor', 'colaborador', 'visor'].includes(nuevoRolDB)) {
             await connection.rollback();
-            connection.release();
             return res.status(400).json({ error: 'Rol inválido' });
         }
 
-        const [permisos] = await connection.query(
-            `SELECT 'propietario' as rol FROM lista 
-             WHERE idLista = ? AND idUsuario = ?
-             UNION
-             SELECT rol FROM lista_compartida 
-             WHERE idLista = ? AND idUsuario = ? AND activo = TRUE`,
-            [idLista, idUsuario, idLista, idUsuario]
+        // ✅ Verificar que el solicitante sea propietario o admin
+        const [lista] = await connection.execute(
+            'SELECT idUsuario, idCategoria FROM lista WHERE idLista = ?',
+            [idLista]
         );
 
-        if (permisos.length === 0 || (permisos[0].rol !== 'propietario' && permisos[0].rol !== 'admin')) {
+        if (lista.length === 0) {
             await connection.rollback();
-            connection.release();
+            return res.status(404).json({ error: 'Lista no encontrada' });
+        }
+
+        const esPropietario = lista[0].idUsuario === idUsuario;
+        
+        console.log('👤 Verificando si es admin de lista', idLista);
+        
+        // Verificar si es admin de la lista
+        let esAdmin = esPropietario;
+        if (!esPropietario) {
+            const [permisoLista] = await connection.execute(
+                'SELECT rol FROM lista_compartida WHERE idLista = ? AND idUsuario = ? AND activo = TRUE',
+                [idLista, idUsuario]
+            );
+            
+            esAdmin = permisoLista.length > 0 && permisoLista[0].rol === 'admin';
+            console.log('✅ Es admin por lista_compartida:', esAdmin);
+        }
+
+        if (!esAdmin) {
+            await connection.rollback();
             return res.status(403).json({ error: 'No tienes permisos para modificar roles' });
         }
 
-        const [usuarioInfo] = await connection.query(
-            'SELECT esCreador FROM lista_compartida WHERE idLista = ? AND idUsuario = ?',
+        console.log('✅ Es propietario de la lista:', esPropietario);
+
+        // ✅ Verificar si el usuario a modificar está en lista_compartida
+        const [usuarioEnLista] = await connection.execute(
+            'SELECT * FROM lista_compartida WHERE idLista = ? AND idUsuario = ?',
             [idLista, idUsuarioModificar]
         );
 
-        if (usuarioInfo.length === 0) {
-            await connection.rollback();
-            connection.release();
-            return res.status(404).json({ error: 'Usuario no encontrado en esta lista' });
+        if (usuarioEnLista.length === 0) {
+            console.log('⚠️ Usuario no está en lista_compartida, verificando acceso por categoría...');
+            
+            // Verificar si tiene acceso por categoría
+            if (lista[0].idCategoria) {
+                const [accesoCategoria] = await connection.execute(
+                    'SELECT * FROM categoria_compartida WHERE idCategoria = ? AND idUsuario = ? AND activo = TRUE',
+                    [lista[0].idCategoria, idUsuarioModificar]
+                );
+
+                if (accesoCategoria.length > 0) {
+                    console.log('✅ Usuario tiene acceso por categoría, creando registro en lista_compartida...');
+                    
+                    // Crear registro en lista_compartida
+                    await connection.execute(
+                        `INSERT INTO lista_compartida 
+                         (idLista, idUsuario, rol, compartidoPor, aceptado, activo, esCreador, fechaCompartido)
+                         VALUES (?, ?, ?, ?, TRUE, TRUE, FALSE, CURRENT_TIMESTAMP)`,
+                        [idLista, idUsuarioModificar, nuevoRolDB, lista[0].idUsuario]
+                    );
+                    
+                    console.log('✅ Usuario agregado a lista_compartida con rol:', nuevoRolDB);
+                } else {
+                    await connection.rollback();
+                    return res.status(404).json({ error: 'Usuario no encontrado en esta lista' });
+                }
+            } else {
+                await connection.rollback();
+                return res.status(404).json({ error: 'Usuario no encontrado en esta lista' });
+            }
+        } else {
+            // Usuario ya está en lista_compartida, verificar que no sea creador
+            if (usuarioEnLista[0].esCreador) {
+                await connection.rollback();
+                return res.status(403).json({ error: 'No se puede modificar el rol del creador' });
+            }
+
+            // Actualizar rol
+            const [result] = await connection.execute(
+                `UPDATE lista_compartida 
+                 SET rol = ? 
+                 WHERE idLista = ? AND idUsuario = ? AND esCreador = FALSE`,
+                [nuevoRolDB, idLista, idUsuarioModificar]
+            );
+
+            if (result.affectedRows === 0) {
+                await connection.rollback();
+                return res.status(404).json({ error: 'No se pudo actualizar el rol' });
+            }
+            
+            console.log('✅ Rol actualizado en BD a:', nuevoRolDB);
         }
 
-        if (usuarioInfo[0].esCreador) {
-            await connection.rollback();
-            connection.release();
-            return res.status(403).json({ error: 'No se puede modificar el rol del creador' });
-        }
-
-        const [result] = await connection.query(
-            `UPDATE lista_compartida 
-             SET rol = ? 
-             WHERE idLista = ? AND idUsuario = ? AND esCreador = FALSE`,
-            [nuevoRolDB, idLista, idUsuarioModificar]
-        );
-
-        if (result.affectedRows === 0) {
-            await connection.rollback();
-            connection.release();
-            return res.status(404).json({ error: 'No se pudo actualizar el rol' });
-        }
-
-        console.log('✅ Rol actualizado en BD a:', nuevoRolDB);
-
-        const [usuarioModificado] = await connection.query(
+        // Obtener información del usuario modificado
+        const [usuarioModificado] = await connection.execute(
             'SELECT nombre, email FROM usuario WHERE idUsuario = ?',
             [idUsuarioModificar]
         );
 
-        const [lista] = await connection.query(
+        const [listaInfo] = await connection.execute(
             'SELECT nombre FROM lista WHERE idLista = ?',
             [idLista]
         );
 
-        const [usuarioQueModifica] = await connection.query(
+        const [usuarioQueModifica] = await connection.execute(
             'SELECT nombre FROM usuario WHERE idUsuario = ?',
             [idUsuario]
         );
 
-        // ✅ NORMALIZAR tipo de notificación
+        // Crear notificación
         const tipoNotificacion = normalizarTipoNotificacion('cambio_rol_lista');
 
-        await connection.query(
+        await connection.execute(
             `INSERT INTO notificaciones 
              (id_usuario, tipo, titulo, mensaje, datos_adicionales, leida, fecha_creacion) 
              VALUES (?, ?, ?, ?, ?, FALSE, CURRENT_TIMESTAMP)`,
@@ -601,10 +647,10 @@ exports.modificarRolLista = async (req, res) => {
                 idUsuarioModificar,
                 tipoNotificacion,
                 'Tu rol ha sido modificado',
-                `${usuarioQueModifica[0].nombre} cambió tu rol en "${lista[0].nombre}" a ${nuevoRol}`,
+                `${usuarioQueModifica[0].nombre} cambió tu rol en "${listaInfo[0].nombre}" a ${nuevoRol}`,
                 JSON.stringify({
                     listaId: parseInt(idLista),
-                    listaNombre: lista[0].nombre,
+                    listaNombre: listaInfo[0].nombre,
                     nuevoRol: nuevoRol,
                     modificadoPor: usuarioQueModifica[0].nombre,
                     modificadoPorId: idUsuario,
@@ -613,10 +659,11 @@ exports.modificarRolLista = async (req, res) => {
             ]
         );
 
-        console.log('✅ Notificación creada con tipo:', tipoNotificacion);
+        console.log('✅ Notificación creada');
 
+        // Registrar auditoría
         try {
-            await connection.query(
+            await connection.execute(
                 `INSERT INTO auditoria_compartidos 
                  (tipo, idEntidad, idUsuario, accion, detalles, fechaAccion)
                  VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
@@ -633,7 +680,7 @@ exports.modificarRolLista = async (req, res) => {
                 ]
             );
         } catch (auditoriaError) {
-            console.warn('No se pudo registrar en auditoría:', auditoriaError.message);
+            console.warn('⚠️ No se pudo registrar en auditoría:', auditoriaError.message);
         }
 
         await connection.commit();
@@ -794,11 +841,13 @@ exports.obtenerListasCompartidas = async (req, res) => {
                 l.*,
                 CASE 
                     WHEN l.idUsuario = ? THEN 'propietario'
-                    ELSE lc.rol
+                    WHEN lc.rol IS NOT NULL THEN lc.rol
+                    WHEN cc.rol IS NOT NULL THEN cc.rol
+                    ELSE NULL
                 END as rol,
                 CASE 
                     WHEN l.idUsuario = ? THEN TRUE
-                    ELSE lc.esCreador
+                    ELSE COALESCE(lc.esCreador, FALSE)
                 END as esCreador,
                 CASE 
                     WHEN l.idUsuario = ? THEN TRUE
@@ -806,29 +855,46 @@ exports.obtenerListasCompartidas = async (req, res) => {
                 END as esPropietario,
                 CASE 
                     WHEN l.idUsuario = ? THEN TRUE
-                    ELSE lc.aceptado
+                    WHEN lc.aceptado IS NOT NULL THEN lc.aceptado
+                    WHEN cc.aceptado IS NOT NULL THEN cc.aceptado
+                    ELSE FALSE
                 END as aceptado,
                 CASE 
                     WHEN l.idUsuario = ? THEN l.fechaCreacion
-                    ELSE lc.fechaCompartido
+                    WHEN lc.fechaCompartido IS NOT NULL THEN lc.fechaCompartido
+                    WHEN cc.fechaCompartido IS NOT NULL THEN cc.fechaCompartido
+                    ELSE NULL
                 END as fechaCompartido,
                 u.nombre as nombrePropietario,
                 u.email as emailPropietario,
-                c.nombre as nombreCategoria
+                c.nombre as nombreCategoria,
+                CASE 
+                    WHEN l.idUsuario = ? THEN 'propietario'
+                    WHEN lc.idUsuario IS NOT NULL THEN 'lista'
+                    WHEN cc.idUsuario IS NOT NULL THEN 'categoria'
+                    ELSE NULL
+                END as origenAcceso
             FROM lista l
             JOIN usuario u ON l.idUsuario = u.idUsuario
             LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
             LEFT JOIN lista_compartida lc ON l.idLista = lc.idLista AND lc.idUsuario = ? AND lc.activo = TRUE
+            LEFT JOIN categoria_compartida cc ON l.idCategoria = cc.idCategoria AND cc.idUsuario = ? AND cc.activo = TRUE
             WHERE (
+                -- Caso 1: Eres propietario y la lista es compartible
                 (l.idUsuario = ? AND l.compartible = TRUE)
                 OR 
+                -- Caso 2: Tienes acceso directo por lista_compartida
                 (lc.idUsuario = ? AND lc.activo = TRUE AND lc.aceptado = TRUE)
+                OR
+                -- Caso 3: Tienes acceso por categoria_compartida (NUEVO)
+                (cc.idUsuario = ? AND cc.activo = TRUE AND cc.aceptado = TRUE AND l.idCategoria IS NOT NULL)
             )
             ORDER BY l.nombre ASC
         `;
 
         const [rows] = await db.execute(query, [
-            idUsuario, idUsuario, idUsuario, idUsuario, idUsuario,
+            idUsuario, idUsuario, idUsuario, idUsuario, idUsuario, idUsuario,
+            idUsuario, idUsuario,
             idUsuario,
             idUsuario,
             idUsuario
@@ -855,7 +921,8 @@ exports.obtenerListasCompartidas = async (req, res) => {
                 emailPropietario: lista.emailPropietario,
                 nombreCategoria: lista.nombreCategoria,
                 fechaCreacion: lista.fechaCreacion,
-                fechaActualizacion: lista.fechaActualizacion
+                fechaActualizacion: lista.fechaActualizacion,
+                origenAcceso: lista.origenAcceso // 'propietario', 'lista' o 'categoria'
             }))
         });
     } catch (error) {
@@ -874,40 +941,66 @@ exports.infoCompartidosLista = async (req, res) => {
 
         console.log('🔍 Obteniendo info compartidos. Lista:', idLista, 'Usuario:', idUsuario);
 
-        // 1️⃣ Obtener información de la lista y verificar acceso
-        const [listaRows] = await db.execute(
-            `SELECT l.*, 
-                    lc.rol as tuRolCompartido,
-                    CASE WHEN l.idUsuario = ? THEN TRUE ELSE FALSE END as esPropietario
+        // ✅ MEJORA: Verificar acceso considerando propietario, lista_compartida Y categoria_compartida
+        const [accesoRows] = await db.execute(
+            `SELECT 
+                l.idLista,
+                l.nombre,
+                l.claveCompartir,
+                l.compartible,
+                l.idUsuario as idPropietario,
+                l.fechaCreacion,
+                l.idCategoria,
+                CASE 
+                    WHEN l.idUsuario = ? THEN 'propietario'
+                    WHEN lc.rol IS NOT NULL THEN lc.rol
+                    WHEN cc.rol IS NOT NULL THEN cc.rol
+                    ELSE NULL
+                END as tuRol,
+                CASE 
+                    WHEN l.idUsuario = ? THEN TRUE
+                    ELSE FALSE
+                END as esPropietario,
+                lc.activo as tieneAccesoCompartidoLista,
+                cc.activo as tieneAccesoCompartidoCategoria
              FROM lista l
              LEFT JOIN lista_compartida lc ON l.idLista = lc.idLista AND lc.idUsuario = ? AND lc.activo = TRUE
+             LEFT JOIN categoria_compartida cc ON l.idCategoria = cc.idCategoria AND cc.idUsuario = ? AND cc.activo = TRUE
              WHERE l.idLista = ?`,
-            [idUsuario, idUsuario, idLista]
+            [idUsuario, idUsuario, idUsuario, idUsuario, idLista]
         );
 
-        if (listaRows.length === 0) {
+        if (accesoRows.length === 0) {
             console.log('❌ Lista no encontrada');
             return res.status(404).json({ error: 'Lista no encontrada' });
         }
 
-        const lista = listaRows[0];
+        const lista = accesoRows[0];
         const esPropietario = lista.esPropietario;
+        const tieneAccesoLista = lista.tieneAccesoCompartidoLista;
+        const tieneAccesoCategoria = lista.tieneAccesoCompartidoCategoria;
+        const tieneAcceso = esPropietario || tieneAccesoLista || tieneAccesoCategoria;
 
-        console.log('📋 Lista encontrada:', {
-            nombre: lista.nombre,
-            idPropietario: lista.idUsuario,
-            esPropietario: esPropietario,
-            tuRolCompartido: lista.tuRolCompartido
+        console.log('📊 Verificación de acceso:', {
+            esPropietario,
+            tieneAccesoLista,
+            tieneAccesoCategoria,
+            tuRol: lista.tuRol,
+            idPropietario: lista.idPropietario,
+            idUsuarioActual: idUsuario,
+            idCategoria: lista.idCategoria
         });
 
-        // 2️⃣ Verificar si el usuario tiene acceso (es propietario O está en lista_compartida)
-        if (!esPropietario && !lista.tuRolCompartido) {
+        // ✅ Validación considerando acceso por categoría
+        if (!tieneAcceso) {
             console.log('❌ Usuario sin acceso');
             return res.status(403).json({ error: 'No tienes acceso a esta lista' });
         }
 
-        // 3️⃣ Obtener todos los usuarios compartidos (incluyendo al propietario si está)
-        const [usuarios] = await db.execute(
+        console.log('✅ Usuario tiene acceso. Rol:', lista.tuRol);
+
+        // Obtener TODOS los usuarios con acceso DIRECTO a la lista
+        const [usuariosCompartidosLista] = await db.execute(
             `SELECT 
                 lc.idUsuario,
                 u.nombre,
@@ -915,72 +1008,131 @@ exports.infoCompartidosLista = async (req, res) => {
                 lc.rol,
                 lc.esCreador,
                 lc.aceptado,
-                lc.fechaCompartido
+                lc.fechaCompartido,
+                'lista' as origenAcceso
              FROM lista_compartida lc
              INNER JOIN usuario u ON lc.idUsuario = u.idUsuario
-             WHERE lc.idLista = ? AND lc.activo = TRUE
-             ORDER BY lc.esCreador DESC, lc.fechaCompartido ASC`,
+             WHERE lc.idLista = ? AND lc.activo = TRUE`,
             [idLista]
         );
 
-        console.log(`👥 Usuarios compartidos encontrados: ${usuarios.length}`);
+        console.log('📋 Usuarios con acceso directo a lista:', usuariosCompartidosLista.length);
 
-        // 4️⃣ Determinar el rol del usuario actual
+        // ✅ NUEVO: Si la lista pertenece a una categoría, obtener usuarios con acceso por categoría
+        let usuariosCompartidosCategoria = [];
+        if (lista.idCategoria) {
+            const [usuariosCategoria] = await db.execute(
+                `SELECT 
+                    cc.idUsuario,
+                    u.nombre,
+                    u.email,
+                    cc.rol,
+                    cc.esCreador,
+                    cc.aceptado,
+                    cc.fechaCompartido,
+                    'categoria' as origenAcceso
+                 FROM categoria_compartida cc
+                 INNER JOIN usuario u ON cc.idUsuario = u.idUsuario
+                 WHERE cc.idCategoria = ? AND cc.activo = TRUE`,
+                [lista.idCategoria]
+            );
+            usuariosCompartidosCategoria = usuariosCategoria;
+            console.log('📁 Usuarios con acceso por categoría:', usuariosCompartidosCategoria.length);
+        }
+
+        // Obtener datos del propietario
+        const [propietarioData] = await db.execute(
+            'SELECT idUsuario, nombre, email FROM usuario WHERE idUsuario = ?',
+            [lista.idPropietario]
+        );
+
+        if (propietarioData.length === 0) {
+            console.log('❌ Propietario no encontrado');
+            return res.status(500).json({ error: 'Error: propietario no encontrado' });
+        }
+
+        const propietario = propietarioData[0];
+        const usuarios = [];
+        const usuariosAgregados = new Set(); // Para evitar duplicados
+
+        // ✅ Agregar al propietario primero
+        const propietarioEnLista = usuariosCompartidosLista.find(u => u.idUsuario === propietario.idUsuario);
+
+        usuarios.push({
+            idUsuario: propietario.idUsuario,
+            nombre: propietario.nombre,
+            email: propietario.email,
+            rol: 'propietario',
+            esPropietario: true,
+            esCreador: true,
+            aceptado: true,
+            fechaCompartido: propietarioEnLista ? propietarioEnLista.fechaCompartido : lista.fechaCreacion,
+            origenAcceso: 'propietario',
+            puedeEliminar: false
+        });
+        usuariosAgregados.add(propietario.idUsuario);
+        console.log('✅ Propietario agregado');
+
+        // ✅ Agregar usuarios con acceso directo a la lista (excluyendo propietario)
+        usuariosCompartidosLista.forEach(u => {
+            if (!usuariosAgregados.has(u.idUsuario)) {
+                usuarios.push({
+                    idUsuario: u.idUsuario,
+                    nombre: u.nombre,
+                    email: u.email,
+                    rol: mapearRolDBaFrontend(u.rol),
+                    esPropietario: false,
+                    esCreador: !!u.esCreador,
+                    aceptado: !!u.aceptado,
+                    fechaCompartido: u.fechaCompartido,
+                    origenAcceso: 'lista',
+                    puedeEliminar: esPropietario || lista.tuRol === 'admin'
+                });
+                usuariosAgregados.add(u.idUsuario);
+            }
+        });
+
+        // ✅ NUEVO: Agregar usuarios con acceso por categoría (excluyendo ya agregados)
+        usuariosCompartidosCategoria.forEach(u => {
+            if (!usuariosAgregados.has(u.idUsuario)) {
+                usuarios.push({
+                    idUsuario: u.idUsuario,
+                    nombre: u.nombre,
+                    email: u.email,
+                    rol: mapearRolDBaFrontend(u.rol),
+                    esPropietario: false,
+                    esCreador: false,
+                    aceptado: !!u.aceptado,
+                    fechaCompartido: u.fechaCompartido,
+                    origenAcceso: 'categoria',
+                    puedeEliminar: esPropietario || lista.tuRol === 'admin'
+                });
+                usuariosAgregados.add(u.idUsuario);
+            }
+        });
+
+        console.log(`✅ Total usuarios: ${usuarios.length}`);
+
+        // Determinar rol del usuario actual
         let tuRol;
         if (esPropietario) {
-            tuRol = 'admin'; // ✅ Propietario siempre es admin
+            tuRol = 'propietario';
         } else {
-            tuRol = lista.tuRolCompartido || null;
+            tuRol = mapearRolDBaFrontend(lista.tuRol);
         }
 
-        console.log('🔐 Tu rol determinado:', tuRol);
-
-        // 5️⃣ Verificar si el propietario está en la lista de usuarios
-        const propietarioEnLista = usuarios.find(u => u.idUsuario === lista.idUsuario);
-        
-        if (!propietarioEnLista && esPropietario) {
-            console.log('⚠️ Propietario no está en lista_compartida, agregándolo a la respuesta');
-            
-            // Obtener datos del propietario
-            const [propietarioData] = await db.execute(
-                'SELECT nombre, email FROM usuario WHERE idUsuario = ?',
-                [lista.idUsuario]
-            );
-
-            if (propietarioData.length > 0) {
-                // Agregar al propietario al inicio de la lista
-                usuarios.unshift({
-                    idUsuario: lista.idUsuario,
-                    nombre: propietarioData[0].nombre,
-                    email: propietarioData[0].email,
-                    rol: 'admin',
-                    esCreador: true,
-                    aceptado: true,
-                    fechaCompartido: lista.fechaCreacion
-                });
-            }
-        }
-
-        // 6️⃣ Enviar respuesta
         res.json({
             lista: {
                 idLista: lista.idLista,
                 nombre: lista.nombre,
                 claveCompartir: lista.claveCompartir,
                 tuRol: tuRol,
-                esPropietario: esPropietario
+                esPropietario: esPropietario,
+                idCategoria: lista.idCategoria
             },
-            usuarios: usuarios.map(u => ({
-                idUsuario: u.idUsuario,
-                nombre: u.nombre,
-                email: u.email,
-                rol: mapearRolDBaFrontend(u.rol), // Mapear a frontend
-                esCreador: !!u.esCreador,
-                aceptado: !!u.aceptado,
-                fechaCompartido: u.fechaCompartido
-            })),
+            usuarios: usuarios,
             totalUsuarios: usuarios.length,
-            puedesGestionar: esPropietario || tuRol === 'admin'
+            puedesGestionar: esPropietario || lista.tuRol === 'admin'
         });
 
         console.log('✅ Info compartidos enviada correctamente');

@@ -1,40 +1,139 @@
 const Lista = require('../models/lista');
+const db = require('../config/config');
+const { generarClaveCompartir } = require('../utils/compartir.utils');
 
 const listaController = {
     // Crear nueva lista
     crearLista: async (req, res) => {
+        const connection = await db.getConnection();
+        
         try {
+            await connection.beginTransaction();
+            
             const { nombre, color, icono, importante, idCategoria } = req.body;
             const idUsuario = req.usuario.idUsuario;
 
             if (!nombre || nombre.trim() === '') {
+                await connection.rollback();
                 return res.status(400).json({
                     success: false,
                     message: 'El nombre de la lista es requerido'
                 });
             }
 
-            const nuevaLista = await Lista.crear({
-                nombre: nombre.trim(),
-                color: color || null,
-                icono: icono || null,
-                importante: importante || false,
-                idCategoria: idCategoria || null,
-                idUsuario
-            });
+            console.log('🔵 Creando lista:', { nombre, idCategoria, idUsuario });
+
+            // ✅ CRÍTICO: Verificar si la categoría está compartida
+            let compartible = false;
+            let claveCompartir = null;
+
+            if (idCategoria) {
+                const [categoria] = await connection.execute(
+                    'SELECT compartible, claveCompartir FROM categoria WHERE idCategoria = ?',
+                    [idCategoria]
+                );
+
+                if (categoria.length > 0 && categoria[0].compartible) {
+                    console.log('✅ Categoría está compartida, heredando estado...');
+                    compartible = true;
+                    
+                    // Generar clave única para la lista
+                    claveCompartir = generarClaveCompartir();
+                    
+                    let intentos = 0;
+                    while (intentos < 10) {
+                        const [existe] = await connection.execute(
+                            'SELECT idLista FROM lista WHERE claveCompartir = ?',
+                            [claveCompartir]
+                        );
+                        if (existe.length === 0) break;
+                        claveCompartir = generarClaveCompartir();
+                        intentos++;
+                    }
+                    
+                    console.log('🔑 Clave generada para nueva lista:', claveCompartir);
+                }
+            }
+
+            // Crear la lista
+            const [result] = await connection.execute(
+                `INSERT INTO lista (nombre, color, icono, importante, idCategoria, idUsuario, compartible, claveCompartir)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    nombre.trim(),
+                    color || null,
+                    icono || null,
+                    importante || false,
+                    idCategoria || null,
+                    idUsuario,
+                    compartible,
+                    claveCompartir
+                ]
+            );
+
+            const idLista = result.insertId;
+            console.log('✅ Lista creada con ID:', idLista);
+
+            // ✅ Si la lista es compartible, agregar al propietario en lista_compartida
+            if (compartible) {
+                await connection.execute(
+                    `INSERT INTO lista_compartida 
+                     (idLista, idUsuario, rol, esCreador, aceptado, activo, compartidoPor, fechaCompartido)
+                     VALUES (?, ?, 'admin', TRUE, TRUE, TRUE, ?, CURRENT_TIMESTAMP)`,
+                    [idLista, idUsuario, idUsuario]
+                );
+                console.log('✅ Propietario agregado a lista_compartida');
+
+                // ✅ NUEVO: Si la categoría está compartida, agregar a todos los usuarios con acceso
+                if (idCategoria) {
+                    const [usuariosCategoria] = await connection.execute(
+                        `SELECT idUsuario, rol 
+                         FROM categoria_compartida 
+                         WHERE idCategoria = ? AND activo = TRUE AND idUsuario != ?`,
+                        [idCategoria, idUsuario]
+                    );
+
+                    console.log(`📋 Usuarios en categoría: ${usuariosCategoria.length}`);
+
+                    for (const usuario of usuariosCategoria) {
+                        await connection.execute(
+                            `INSERT INTO lista_compartida 
+                             (idLista, idUsuario, rol, esCreador, aceptado, activo, compartidoPor, fechaCompartido)
+                             VALUES (?, ?, ?, FALSE, TRUE, TRUE, ?, CURRENT_TIMESTAMP)`,
+                            [idLista, usuario.idUsuario, usuario.rol, idUsuario]
+                        );
+                        console.log(`✅ Usuario ${usuario.idUsuario} agregado a lista compartida con rol ${usuario.rol}`);
+                    }
+                }
+            }
+
+            await connection.commit();
 
             res.status(201).json({
                 success: true,
                 message: 'Lista creada exitosamente',
-                data: nuevaLista
+                data: {
+                    idLista,
+                    nombre: nombre.trim(),
+                    color: color || null,
+                    icono: icono || null,
+                    importante: importante || false,
+                    idCategoria: idCategoria || null,
+                    compartible,
+                    claveCompartir,
+                    fechaCreacion: new Date()
+                }
             });
         } catch (error) {
-            console.error('Error en crearLista:', error);
+            await connection.rollback();
+            console.error('❌ Error al crear lista:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al crear la lista',
                 error: error.message
             });
+        } finally {
+            connection.release();
         }
     },
 

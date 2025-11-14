@@ -20,26 +20,34 @@ const { Invitacion } = require('../../models/categoriaCompartida');
  * Generar clave para compartir categoría
  */
 exports.generarClaveCategoria = async (req, res) => {
+    const connection = await db.getConnection();
     try {
+        await connection.beginTransaction();
+
         const { idCategoria } = req.params;
         const idUsuario = req.usuario.idUsuario;
 
+        console.log('🔵 Compartiendo categoría ID:', idCategoria);
+
         // Verificar que la categoría existe y es del usuario
-        const [catRows] = await db.execute(
+        const [catRows] = await connection.execute(
             'SELECT * FROM categoria WHERE idCategoria = ? AND idUsuario = ?',
             [idCategoria, idUsuario]
         );
 
         if (catRows.length === 0) {
+            await connection.rollback();
             return res.status(404).json({ error: 'Categoría no encontrada' });
         }
 
-        // Generar clave única
+        console.log('✅ Categoría encontrada:', catRows[0].nombre);
+
+        // Generar clave única para categoría
         let clave = generarClaveCompartir();
         let intentos = 0;
 
         while (intentos < 10) {
-            const [existe] = await db.execute(
+            const [existe] = await connection.execute(
                 'SELECT idCategoria FROM categoria WHERE claveCompartir = ?',
                 [clave]
             );
@@ -48,38 +56,131 @@ exports.generarClaveCategoria = async (req, res) => {
             intentos++;
         }
 
+        console.log('🔑 Clave de categoría generada:', clave);
+
         // Actualizar categoría
-        await db.execute(
+        await connection.execute(
             `UPDATE categoria 
              SET claveCompartir = ?, tipoPrivacidad = 'compartida', compartible = TRUE 
              WHERE idCategoria = ?`,
             [clave, idCategoria]
         );
 
+        console.log('✅ Categoría actualizada como compartible');
+
+        // ✅ Obtener todas las listas de esta categoría
+        const [listas] = await connection.execute(
+            'SELECT idLista, nombre FROM lista WHERE idCategoria = ?',
+            [idCategoria]
+        );
+
+        console.log(`📋 Listas encontradas en categoría ${idCategoria}: ${listas.length}`);
+
+        // ✅ Hacer compartibles todas las listas de la categoría
+        if (listas.length > 0) {
+            for (const lista of listas) {
+                console.log(`🔄 Procesando lista: "${lista.nombre}" (ID: ${lista.idLista})`);
+                
+                // Generar clave única para cada lista
+                let claveLista = generarClaveCompartir();
+                let intentosLista = 0;
+
+                while (intentosLista < 10) {
+                    const [existeLista] = await connection.execute(
+                        'SELECT idLista FROM lista WHERE claveCompartir = ?',
+                        [claveLista]
+                    );
+                    if (existeLista.length === 0) break;
+                    claveLista = generarClaveCompartir();
+                    intentosLista++;
+                }
+
+                console.log(`🔑 Clave generada para lista "${lista.nombre}": ${claveLista}`);
+
+                // ✅ CRÍTICO: Actualizar AMBOS campos
+                const [updateResult] = await connection.execute(
+                    `UPDATE lista 
+                     SET claveCompartir = ?, compartible = TRUE 
+                     WHERE idLista = ?`,
+                    [claveLista, lista.idLista]
+                );
+
+                console.log(`📝 UPDATE ejecutado. Filas afectadas: ${updateResult.affectedRows}`);
+
+                // Verificar que se aplicó correctamente
+                const [verificacion] = await connection.execute(
+                    'SELECT compartible, claveCompartir FROM lista WHERE idLista = ?',
+                    [lista.idLista]
+                );
+                
+                console.log(`🔍 Verificación lista "${lista.nombre}": compartible=${verificacion[0].compartible}, clave=${verificacion[0].claveCompartir}`);
+
+                // ✅ Insertar al propietario en lista_compartida si no existe
+                const [propietarioEnLista] = await connection.execute(
+                    'SELECT * FROM lista_compartida WHERE idLista = ? AND idUsuario = ?',
+                    [lista.idLista, idUsuario]
+                );
+
+                if (propietarioEnLista.length === 0) {
+                    await connection.execute(
+                        `INSERT INTO lista_compartida 
+                         (idLista, idUsuario, rol, esCreador, aceptado, activo, compartidoPor, fechaCompartido)
+                         VALUES (?, ?, 'admin', TRUE, TRUE, TRUE, ?, CURRENT_TIMESTAMP)`,
+                        [lista.idLista, idUsuario, idUsuario]
+                    );
+                    console.log(`✅ Propietario agregado a lista_compartida para lista "${lista.nombre}"`);
+                } else {
+                    console.log(`ℹ️ Propietario ya existe en lista_compartida para lista "${lista.nombre}"`);
+                }
+            }
+        } else {
+            console.log('⚠️ No hay listas en esta categoría');
+        }
+
         // Registrar en auditoría
-        await AuditoriaCompartidos.registrar({
-            tipo: 'categoria',
-            idEntidad: idCategoria,
-            idUsuario,
-            accion: 'generar_clave',
-            detalles: { clave }
-        });
+        try {
+            await connection.execute(
+                `INSERT INTO auditoria_compartidos 
+                 (tipo, idEntidad, idUsuario, accion, detalles, fechaAccion)
+                 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+                [
+                    'categoria',
+                    parseInt(idCategoria),
+                    idUsuario,
+                    'generar_clave',
+                    JSON.stringify({ 
+                        clave,
+                        listasCompartidas: listas.length
+                    })
+                ]
+            );
+            console.log('✅ Auditoría registrada');
+        } catch (auditoriaError) {
+            console.warn('⚠️ Error al registrar auditoría:', auditoriaError.message);
+        }
+
+        await connection.commit();
+        console.log('✅ Transacción completada exitosamente');
 
         res.json({
-            mensaje: 'Clave generada exitosamente',
+            mensaje: 'Categoría compartida exitosamente',
             clave,
             categoria: {
                 idCategoria: catRows[0].idCategoria,
                 nombre: catRows[0].nombre,
                 claveCompartir: clave
-            }
+            },
+            listasCompartidas: listas.length
         });
     } catch (error) {
-        console.error('Error al generar clave:', error);
+        await connection.rollback();
+        console.error('❌ Error al generar clave:', error);
+        console.error('Stack:', error.stack);
         res.status(500).json({ error: 'Error al generar clave de compartir' });
+    } finally {
+        connection.release();
     }
 };
-
 /**
  * Unirse a categoría mediante clave
  */
@@ -422,31 +523,72 @@ exports.salirDeCategoria = async (req, res) => {
  * Descompartir categoría (revocar todos los accesos)
  */
 exports.descompartirCategoria = async (req, res) => {
+    const connection = await db.getConnection();
     try {
+        await connection.beginTransaction();
+
         const { idCategoria } = req.params;
         const idUsuario = req.usuario.idUsuario;
 
         // Verificar que el usuario sea propietario
-        const [catRows] = await db.execute(
+        const [catRows] = await connection.execute(
             'SELECT * FROM categoria WHERE idCategoria = ? AND idUsuario = ?',
             [idCategoria, idUsuario]
         );
 
         if (catRows.length === 0) {
+            await connection.rollback();
             return res.status(403).json({
                 error: 'No tienes permisos para descompartir esta categoría'
             });
         }
 
-        // Eliminar todos los compartidos de la categoría (excepto el propietario)
-        await db.execute(
-            'DELETE FROM categoria_compartida WHERE idCategoria = ?',
+        // ✅ NUEVO: Obtener todas las listas de esta categoría
+        const [listas] = await connection.execute(
+            'SELECT idLista FROM lista WHERE idCategoria = ?',
             [idCategoria]
         );
 
-        // Limpiar la clave de compartir
-        await db.execute(
-            'UPDATE categoria SET claveCompartir = NULL, compartible = false WHERE idCategoria = ?',
+        console.log(`📋 Listas encontradas en categoría ${idCategoria}: ${listas.length}`);
+
+        // ✅ NUEVO: Hacer compartibles todas las listas de la categoría
+        if (listas.length > 0) {
+            for (const lista of listas) {
+                // Generar clave única para cada lista
+                let claveLista = generarClaveCompartir();
+                let intentosLista = 0;
+
+                while (intentosLista < 10) {
+                    const [existeLista] = await connection.execute(
+                        'SELECT idLista FROM lista WHERE claveCompartir = ?',
+                        [claveLista]
+                    );
+                    if (existeLista.length === 0) break;
+                    claveLista = generarClaveCompartir();
+                    intentosLista++;
+                }
+
+                // ✅ CAMBIO CRÍTICO: Actualizar TANTO claveCompartir COMO compartible
+                await connection.execute(
+                    `UPDATE lista 
+                    SET claveCompartir = ?, compartible = TRUE 
+                    WHERE idLista = ?`,
+                    [claveLista, lista.idLista]
+                );
+
+                console.log(`✅ Lista ${lista.idLista} marcada como compartible con clave ${claveLista}`);
+            }
+        }
+
+        // Eliminar todos los compartidos de la categoría (excepto el propietario)
+        await connection.execute(
+            'DELETE FROM categoria_compartida WHERE idCategoria = ? AND idUsuario != ?',
+            [idCategoria, idUsuario]
+        );
+
+        // Limpiar la clave de compartir de la categoría
+        await connection.execute(
+            'UPDATE categoria SET claveCompartir = NULL, compartible = FALSE WHERE idCategoria = ?',
             [idCategoria]
         );
 
@@ -455,16 +597,24 @@ exports.descompartirCategoria = async (req, res) => {
             idEntidad: idCategoria,
             idUsuario,
             accion: 'descompartir',
-            detalles: {}
+            detalles: {
+                listasDescompartidas: listas.length
+            }
         });
+
+        await connection.commit();
 
         res.json({
             mensaje: 'Categoría descompartida exitosamente',
-            idCategoria
+            idCategoria,
+            listasDescompartidas: listas.length
         });
     } catch (error) {
+        await connection.rollback();
         console.error('Error al descompartir categoría:', error);
         res.status(500).json({ error: 'Error al descompartir categoría' });
+    } finally {
+        connection.release();
     }
 };
 
