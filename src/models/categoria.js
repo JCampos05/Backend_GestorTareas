@@ -5,18 +5,18 @@ class Categoria {
     constructor(data) {
         this.idCategoria = data.idCategoria;
         this.nombre = data.nombre;
-        this.compartible = data.compartible;
-        this.tipoPrivacidad = data.tipoPrivacidad;
-        this.claveCompartir = data.claveCompartir;
+        this.compartible = Boolean(data.compartible);
+        this.tipoPrivacidad = data.tipoPrivacidad || 'privada';
+        this.claveCompartir = data.claveCompartir || null;
         this.fechaActualizacion = data.fechaActualizacion;
     }
 
     // Crear una nueva categoría
     static async crear(categoriaData) {
         try {
-            const {nombre, idUsuario} = categoriaData;
+            const { nombre, idUsuario } = categoriaData;
             const query = `INSERT INTO categoria (nombre, idUsuario) VALUES (?, ?)`;
-            
+
             const [result] = await db.execute(query, [nombre, idUsuario]);
             const idCategoria = result.insertId;
 
@@ -81,11 +81,11 @@ class Categoria {
                     AND (c.idUsuario = ? OR (cc.idUsuario = ? AND cc.activo = TRUE))
             `;
             const [rows] = await db.execute(query, [idUsuario, idUsuario, id, idUsuario, idUsuario]);
-            
+
             if (rows.length === 0) {
                 return null;
             }
-            
+
             return new Categoria(rows[0]);
         } catch (error) {
             throw new Error(`Error al obtener categoría: ${error.message}`);
@@ -111,7 +111,7 @@ class Categoria {
                 WHERE idCategoria = ?
             `;
             const [result] = await db.execute(query, [categoriaData.nombre, id]);
-            
+
             if (result.affectedRows === 0) {
                 return null;
             }
@@ -128,7 +128,7 @@ class Categoria {
             // Solo el propietario puede eliminar
             const query = 'SELECT idUsuario FROM categoria WHERE idCategoria = ?';
             const [rows] = await db.execute(query, [id]);
-            
+
             if (rows.length === 0) {
                 return false;
             }
@@ -139,7 +139,7 @@ class Categoria {
 
             const deleteQuery = 'DELETE FROM categoria WHERE idCategoria = ?';
             const [result] = await db.execute(deleteQuery, [id]);
-            
+
             return result.affectedRows > 0;
         } catch (error) {
             throw new Error(`Error al eliminar categoría: ${error.message}`);
@@ -150,25 +150,29 @@ class Categoria {
     static async obtenerConListas(id, idUsuario) {
         try {
             const query = `
-                SELECT 
-                    c.*, 
-                    cc.rol as rolCategoria,
-                    l.idLista, 
-                    l.nombre as nombreLista, 
-                    l.color, 
-                    l.icono, 
-                    l.fechaCreacion as fechaCreacionLista
-                FROM categoria c
-                LEFT JOIN categoria_compartida cc ON c.idCategoria = cc.idCategoria 
-                    AND cc.idUsuario = ? 
-                    AND cc.activo = TRUE
-                LEFT JOIN lista l ON c.idCategoria = l.idCategoria
-                WHERE c.idCategoria = ? 
-                    AND (c.idUsuario = ? OR (cc.idUsuario = ? AND cc.activo = TRUE))
-                ORDER BY l.nombre ASC
-            `;
+            SELECT 
+                c.*, 
+                cc.rol as rolCategoria,
+                l.idLista, 
+                l.nombre as nombreLista, 
+                l.color, 
+                l.icono,
+                l.importante,
+                l.compartible,
+                l.claveCompartir,
+                l.idUsuario as idUsuarioLista,
+                l.fechaCreacion as fechaCreacionLista
+            FROM categoria c
+            LEFT JOIN categoria_compartida cc ON c.idCategoria = cc.idCategoria 
+                AND cc.idUsuario = ? 
+                AND cc.activo = TRUE
+            LEFT JOIN lista l ON c.idCategoria = l.idCategoria
+            WHERE c.idCategoria = ? 
+                AND (c.idUsuario = ? OR (cc.idUsuario = ? AND cc.activo = TRUE))
+            ORDER BY l.importante DESC, l.nombre ASC
+        `;
             const [rows] = await db.execute(query, [idUsuario, id, idUsuario, idUsuario]);
-            
+
             if (rows.length === 0) {
                 return null;
             }
@@ -190,6 +194,10 @@ class Categoria {
                         nombre: row.nombreLista,
                         color: row.color,
                         icono: row.icono,
+                        importante: row.importante,  // ✅ AGREGADO
+                        compartible: row.compartible, // ✅ AGREGADO
+                        claveCompartir: row.claveCompartir, // ✅ AGREGADO
+                        idUsuario: row.idUsuarioLista, // ✅ AGREGADO
                         fechaCreacion: row.fechaCreacionLista
                     });
                 }
@@ -200,7 +208,6 @@ class Categoria {
             throw new Error(`Error al obtener categoría con listas: ${error.message}`);
         }
     }
-
     // NUEVOS MÉTODOS PARA COMPARTIDOS
 
     // Verificar si usuario tiene permiso específico
@@ -215,12 +222,12 @@ class Categoria {
                 WHERE c.idCategoria = ?
             `;
             const [rows] = await db.execute(query, [idUsuario, idCategoria]);
-            
+
             if (rows.length === 0) return false;
-            
+
             // Es propietario
             if (rows[0].propietario === idUsuario) return true;
-            
+
             // Verificar rol
             const rol = rows[0].rol;
             if (!rol) return false;
@@ -248,15 +255,15 @@ class Categoria {
                 WHERE c.idCategoria = ?
             `;
             const [rows] = await db.execute(query, [idUsuario, idCategoria]);
-            
+
             if (rows.length === 0) return null;
-            
+
             if (rows[0].propietario === idUsuario) {
                 return { rol: 'admin', esPropietario: true };
             }
-            
-            return { 
-                rol: rows[0].rol || null, 
+
+            return {
+                rol: rows[0].rol || null,
                 esPropietario: false,
                 esCreador: rows[0].esCreador || false
             };
@@ -265,7 +272,7 @@ class Categoria {
             return null;
         }
     }
-    
+
 }
 
 module.exports = Categoria;

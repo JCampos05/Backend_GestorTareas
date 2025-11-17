@@ -6,11 +6,11 @@ class CategoriaCompartida {
         this.idCategoria = data.idCategoria;
         this.idUsuario = data.idUsuario;
         this.rol = data.rol;
-        this.esCreador = data.esCreador;
+        this.esCreador = Boolean(data.esCreador);
         this.fechaCompartido = data.fechaCompartido;
         this.compartidoPor = data.compartidoPor;
-        this.aceptado = data.aceptado;
-        this.activo = data.activo;
+        this.aceptado = Boolean(data.aceptado);
+        this.activo = Boolean(data.activo);
     }
 
     // Crear nuevo compartido
@@ -25,10 +25,10 @@ class CategoriaCompartida {
                 data.idCategoria,
                 data.idUsuario,
                 data.rol || 'colaborador',
-                data.esCreador || false,
+                Boolean(data.esCreador) ? 1 : 0,
                 data.compartidoPor,
-                data.aceptado !== undefined ? data.aceptado : false,
-                data.activo !== undefined ? data.activo : true
+                Boolean(data.aceptado) ? 1 : 0,
+                Boolean(data.activo !== false) ? 1 : 0
             ]);
 
             return result.insertId;

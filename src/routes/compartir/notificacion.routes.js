@@ -22,4 +22,10 @@ router.post('/:id/aceptar', notificacionController.aceptarInvitacion);
 // Rechazar invitación
 router.post('/:id/rechazar', notificacionController.rechazarInvitacion);
 
+// Crear notificación de repetición
+router.post('/crear-repeticion', notificacionController.crearNotificacionRepeticion);
+
+// Programar recordatorio
+router.post('/programar-recordatorio', notificacionController.programarRecordatorio);
+
 module.exports = router;

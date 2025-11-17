@@ -9,7 +9,7 @@ exports.crearNotificacion = async (connection, idUsuario, tipo, titulo, mensaje,
         const [result] = await connection.execute(
             `INSERT INTO notificaciones 
             (id_usuario, tipo, titulo, mensaje, datos_adicionales, leida, fecha_creacion) 
-            VALUES (?, ?, ?, ?, ?, FALSE, CURRENT_TIMESTAMP)`,
+            VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`,
             [idUsuario, tipo, titulo, mensaje, JSON.stringify(datos)]
         );
 
@@ -56,8 +56,7 @@ exports.obtenerNotificaciones = async (req, res) => {
         res.json({
             notificaciones: notificaciones.map(n => ({
                 ...n,
-                // ✅ FIX: Si ya es objeto, no parsear. Si es string, parsear
-                datos: typeof n.datos === 'string' ? JSON.parse(n.datos) : n.datos
+                datos: typeof n.datos === 'string' ? JSON.parse(n.datos) : (n.datos || {})
             }))
         });
     } catch (error) {
@@ -83,7 +82,7 @@ exports.marcarComoLeida = async (req, res) => {
 
         const [result] = await db.execute(
             `UPDATE notificaciones 
-             SET leida = TRUE 
+             SET leida = 1 
              WHERE id = ? AND id_usuario = ?`,
             [id, idUsuario]
         );
@@ -112,8 +111,8 @@ exports.marcarTodasLeidas = async (req, res) => {
 
         await db.execute(
             `UPDATE notificaciones 
-             SET leida = TRUE 
-             WHERE id_usuario = ? AND leida = FALSE`,
+             SET leida = 1 
+             WHERE id_usuario = ? AND leida = 0`,
             [idUsuario]
         );
 
@@ -170,13 +169,13 @@ exports.aceptarInvitacion = async (req, res) => {
         await connection.execute(
             `INSERT INTO lista_compartida 
             (idLista, idUsuario, rol, compartidoPor, aceptado, activo, fechaCompartido)
-            VALUES (?, ?, ?, ?, TRUE, TRUE, CURRENT_TIMESTAMP)
-            ON DUPLICATE KEY UPDATE aceptado = TRUE, activo = TRUE`,
+            VALUES (?, ?, ?, ?, 1, 1, CURRENT_TIMESTAMP)
+            ON DUPLICATE KEY UPDATE aceptado = 1, activo = 1`,
             [datos.listaId, idUsuario, datos.rol, datos.invitadoPorId || null]
         );
 
         await connection.execute(
-            `UPDATE notificaciones SET leida = TRUE WHERE id = ?`,
+            `UPDATE notificaciones SET leida = 1 WHERE id = ?`,
             [id]
         );
 
@@ -212,7 +211,7 @@ exports.rechazarInvitacion = async (req, res) => {
 
         await db.execute(
             `UPDATE notificaciones 
-             SET leida = TRUE 
+             SET leida = 1 
              WHERE id = ? AND id_usuario = ?`,
             [id, idUsuario]
         );
@@ -221,6 +220,76 @@ exports.rechazarInvitacion = async (req, res) => {
     } catch (error) {
         console.error('Error al rechazar invitación:', error);
         res.status(500).json({ error: 'Error al rechazar invitación' });
+    }
+};
+
+/**
+ * Crear notificación de repetición de tarea
+ */
+exports.crearNotificacionRepeticion = async (req, res) => {
+    try {
+        const { tareaId, tareaNombre, fechaVencimiento } = req.body;
+        const idUsuario = req.usuario.idUsuario || req.usuario.id;
+
+        if (!idUsuario) {
+            return res.status(401).json({ error: 'Usuario no autenticado' });
+        }
+
+        const titulo = '🔄 Tarea repetida';
+        const mensaje = `Tu tarea "${tareaNombre}" se ha programado nuevamente para ${new Date(fechaVencimiento).toLocaleDateString()}`;
+        
+        const datos = JSON.stringify({
+            tareaId,
+            tareaNombre,
+            fechaVencimiento
+        });
+
+        await db.execute(
+            `INSERT INTO notificaciones 
+            (id_usuario, tipo, titulo, mensaje, datos_adicionales, leida, fecha_creacion) 
+            VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`,
+            [idUsuario, 'tarea_repetir', titulo, mensaje, datos]
+        );
+
+        res.json({ success: true, message: 'Notificación de repetición creada' });
+    } catch (error) {
+        console.error('Error al crear notificación de repetición:', error);
+        res.status(500).json({ error: 'Error al crear notificación' });
+    }
+};
+
+/**
+ * Programar recordatorio
+ */
+exports.programarRecordatorio = async (req, res) => {
+    try {
+        const { tareaId, tareaNombre, fechaRecordatorio } = req.body;
+        const idUsuario = req.usuario.idUsuario || req.usuario.id;
+
+        if (!idUsuario) {
+            return res.status(401).json({ error: 'Usuario no autenticado' });
+        }
+
+        const titulo = '🔔 Recordatorio de tarea';
+        const mensaje = `Recordatorio: "${tareaNombre}"`;
+        
+        const datos = JSON.stringify({
+            tareaId,
+            tareaNombre,
+            fechaVencimiento: fechaRecordatorio
+        });
+
+        await db.execute(
+            `INSERT INTO notificaciones 
+            (id_usuario, tipo, titulo, mensaje, datos_adicionales, leida, fecha_creacion) 
+            VALUES (?, ?, ?, ?, ?, 0, ?)`,
+            [idUsuario, 'recordatorio', titulo, mensaje, datos, fechaRecordatorio]
+        );
+
+        res.json({ success: true, message: 'Recordatorio programado' });
+    } catch (error) {
+        console.error('Error al programar recordatorio:', error);
+        res.status(500).json({ error: 'Error al programar recordatorio' });
     }
 };
 

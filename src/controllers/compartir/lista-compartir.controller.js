@@ -16,7 +16,7 @@ const {
 
 const { Invitacion } = require('../../models/categoriaCompartida');
 
-// ✅ MAPEO DE ROLES: Frontend -> Base de Datos
+// MAPEO DE ROLES: Frontend -> Base de Datos
 const mapearRolFrontendADB = (rolFrontend) => {
     const mapeo = {
         'lector': 'visor',
@@ -27,7 +27,7 @@ const mapearRolFrontendADB = (rolFrontend) => {
     return mapeo[rolFrontend] || rolFrontend;
 };
 
-// ✅ MAPEO DE ROLES: Base de Datos -> Frontend
+// MAPEO DE ROLES: Base de Datos -> Frontend
 const mapearRolDBaFrontend = (rolDB) => {
     const mapeo = {
         'visor': 'lector',
@@ -38,15 +38,13 @@ const mapearRolDBaFrontend = (rolDB) => {
     return mapeo[rolDB] || rolDB;
 };
 
-// ✅ FUNCIÓN AUXILIAR: Normalizar tipo de notificación para el ENUM
+// FUNCIÓN AUXILIAR: Normalizar tipo de notificación para el ENUM
 const normalizarTipoNotificacion = (tipo) => {
     const tiposValidos = ['invitacion_lista', 'tarea_asignada', 'comentario'];
     return tiposValidos.includes(tipo) ? tipo : 'otro';
 };
 
-/**
- * Generar clave para compartir lista
- */
+
 /**
  * Generar clave para compartir lista
  */
@@ -74,7 +72,7 @@ exports.generarClaveLista = async (req, res) => {
             });
         }
 
-        console.log('✅ Validación pasada, consultando BD...');
+        console.log(' Validación pasada, consultando BD...');
 
         const [rows] = await connection.execute(
             'SELECT * FROM lista WHERE idLista = ? AND idUsuario = ?',
@@ -84,7 +82,7 @@ exports.generarClaveLista = async (req, res) => {
         console.log('📊 Resultados de BD:', rows.length);
 
         if (rows.length === 0) {
-            console.log('❌ Lista no encontrada');
+            console.log(' Lista no encontrada');
             await connection.rollback();
             connection.release();
             return res.status(404).json({
@@ -92,7 +90,7 @@ exports.generarClaveLista = async (req, res) => {
             });
         }
 
-        console.log('✅ Lista encontrada:', rows[0].nombre);
+        console.log(' Lista encontrada:', rows[0].nombre);
 
         let clave = rows[0].claveCompartir;
         let claveExistia = !!clave;
@@ -389,7 +387,7 @@ exports.invitarUsuarioLista = async (req, res) => {
         await connection.query(
             `INSERT INTO lista_compartida 
              (idLista, idUsuario, rol, compartidoPor, aceptado, activo, esCreador) 
-             VALUES (?, ?, ?, ?, TRUE, TRUE, FALSE)`,
+             VALUES (?, ?, ?, ?, 1, 1, 0)`,
             [idLista, usuarioInvitado.idUsuario, rolDB, idUsuarioInvita]
         );
 
@@ -830,6 +828,9 @@ exports.descompartirLista = async (req, res) => {
 /**
  * Obtener todas las listas compartidas del usuario
  */
+// En lista-compartir.controller.js
+// REEMPLAZAR el método obtenerListasCompartidas completo
+
 exports.obtenerListasCompartidas = async (req, res) => {
     try {
         const idUsuario = req.usuario.idUsuario;
@@ -880,14 +881,11 @@ exports.obtenerListasCompartidas = async (req, res) => {
             LEFT JOIN lista_compartida lc ON l.idLista = lc.idLista AND lc.idUsuario = ? AND lc.activo = TRUE
             LEFT JOIN categoria_compartida cc ON l.idCategoria = cc.idCategoria AND cc.idUsuario = ? AND cc.activo = TRUE
             WHERE (
-                -- Caso 1: Eres propietario y la lista es compartible
-                (l.idUsuario = ? AND l.compartible = TRUE)
+                (l.idUsuario = ? AND (l.compartible = TRUE OR l.claveCompartir IS NOT NULL))
                 OR 
-                -- Caso 2: Tienes acceso directo por lista_compartida
-                (lc.idUsuario = ? AND lc.activo = TRUE AND lc.aceptado = TRUE)
+                (lc.idUsuario = ? AND lc.activo = TRUE AND lc.aceptado = TRUE AND (l.compartible = TRUE OR l.claveCompartir IS NOT NULL))
                 OR
-                -- Caso 3: Tienes acceso por categoria_compartida (NUEVO)
-                (cc.idUsuario = ? AND cc.activo = TRUE AND cc.aceptado = TRUE AND l.idCategoria IS NOT NULL)
+                (cc.idUsuario = ? AND cc.activo = TRUE AND cc.aceptado = TRUE AND l.idCategoria IS NOT NULL AND (l.compartible = TRUE OR l.claveCompartir IS NOT NULL))
             )
             ORDER BY l.nombre ASC
         `;
@@ -922,7 +920,7 @@ exports.obtenerListasCompartidas = async (req, res) => {
                 nombreCategoria: lista.nombreCategoria,
                 fechaCreacion: lista.fechaCreacion,
                 fechaActualizacion: lista.fechaActualizacion,
-                origenAcceso: lista.origenAcceso // 'propietario', 'lista' o 'categoria'
+                origenAcceso: lista.origenAcceso
             }))
         });
     } catch (error) {

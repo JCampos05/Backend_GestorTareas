@@ -15,7 +15,7 @@ class Notificacion {
       tipo: row.tipo,
       titulo: row.titulo,
       mensaje: row.mensaje,
-      leida: Boolean(row.leida),
+      leida: Boolean(row.leida === 1 || row.leida === true),
       fecha: row.fecha,
       datos: row.datos_adicionales
     });

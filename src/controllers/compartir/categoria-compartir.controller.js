@@ -61,7 +61,7 @@ exports.generarClaveCategoria = async (req, res) => {
         // Actualizar categoría
         await connection.execute(
             `UPDATE categoria 
-             SET claveCompartir = ?, tipoPrivacidad = 'compartida', compartible = TRUE 
+             SET claveCompartir = ?, tipoPrivacidad = 'compartida', compartible = 1 
              WHERE idCategoria = ?`,
             [clave, idCategoria]
         );
@@ -100,7 +100,7 @@ exports.generarClaveCategoria = async (req, res) => {
                 // ✅ CRÍTICO: Actualizar AMBOS campos
                 const [updateResult] = await connection.execute(
                     `UPDATE lista 
-                     SET claveCompartir = ?, compartible = TRUE 
+                     SET claveCompartir = ?, compartible = 1
                      WHERE idLista = ?`,
                     [claveLista, lista.idLista]
                 );
@@ -125,7 +125,7 @@ exports.generarClaveCategoria = async (req, res) => {
                     await connection.execute(
                         `INSERT INTO lista_compartida 
                          (idLista, idUsuario, rol, esCreador, aceptado, activo, compartidoPor, fechaCompartido)
-                         VALUES (?, ?, 'admin', TRUE, TRUE, TRUE, ?, CURRENT_TIMESTAMP)`,
+                         VALUES (?, ?, 'admin', 1, 1, 1, ?, CURRENT_TIMESTAMP)`,
                         [lista.idLista, idUsuario, idUsuario]
                     );
                     console.log(`✅ Propietario agregado a lista_compartida para lista "${lista.nombre}"`);
@@ -309,7 +309,7 @@ exports.invitarUsuarioCategoria = async (req, res) => {
             if (yaCompartida) {
                 await db.execute(
                     `UPDATE categoria_compartida 
-                     SET activo = TRUE, aceptado = TRUE, rol = ?, compartidoPor = ?
+                     SET activo = 1, aceptado = 1, rol = ?, compartidoPor = ?
                      WHERE idCategoria = ? AND idUsuario = ?`,
                     [rol, idUsuario, idCategoria, usuarioInvitado.idUsuario]
                 );

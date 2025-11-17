@@ -8,7 +8,7 @@ class Lista {
         this.icono = data.icono || null;
         this.idCategoria = data.idCategoria || null;
         this.fechaCreacion = data.fechaCreacion;
-        this.importante = data.importante || false;
+        this.importante = Boolean(data.importante) || false;
     }
 
     // Crear una nueva lista
@@ -23,17 +23,17 @@ class Lista {
                 listaData.nombre,
                 listaData.color || null,
                 listaData.icono || null,
-                listaData.importante || false,
+                Boolean(listaData.importante) ? 1 : 0,
                 listaData.idCategoria || null,
                 listaData.idUsuario,
-                listaData.compartible || false
-                // ✅ Ya no necesitamos pasar compartible, está hardcoded como TRUE en el query
+                Boolean(listaData.compartible) ? 1 : 0
+                // Ya no necesitamos pasar compartible, está hardcoded como TRUE en el query
             ]);
 
             return {
                 idLista: result.insertId,
                 ...listaData,
-                compartible: listaData.compartible || false,  // ✅ Asegurar que el objeto devuelto tenga compartible
+                compartible: Boolean(listaData.compartible),  //  Asegurar que el objeto devuelto tenga compartible
                 fechaCreacion: new Date()
             };
         } catch (error) {
@@ -43,6 +43,10 @@ class Lista {
 
     // Obtener todas las listas
     // En lista.js - REEMPLAZAR obtenerTodas
+    // En lista.js - MODIFICAR el método obtenerTodas()
+
+    // En lista.js - MODIFICAR el método obtenerTodas()
+
     static async obtenerTodas(idUsuario) {
         try {
             const query = `
@@ -57,7 +61,6 @@ class Lista {
                     WHEN lc.idUsuario = ? AND lc.activo = TRUE AND lc.aceptado = TRUE THEN TRUE
                     ELSE FALSE
                 END as esCompartidaConmigo,
-                -- ✅ Nueva bandera: si tiene usuarios compartidos
                 CASE 
                     WHEN EXISTS (
                         SELECT 1 FROM lista_compartida lc2 
@@ -86,7 +89,8 @@ class Lista {
                 nombre: row.nombre,
                 color: row.color,
                 icono: row.icono,
-                importante: row.importante,
+                // ✅ CORRECCIÓN: Convertir explícitamente a booleano
+                importante: Boolean(row.importante),
                 compartible: row.compartible,
                 claveCompartir: row.claveCompartir,
                 idCategoria: row.idCategoria,
@@ -94,7 +98,7 @@ class Lista {
                 idUsuario: row.idUsuario,
                 esPropietario: !!row.esPropietario,
                 esCompartidaConmigo: !!row.esCompartidaConmigo,
-                esCompartida: !!row.esCompartida, // ✅ Nueva
+                esCompartida: !!row.esCompartida,
                 fechaCreacion: row.fechaCreacion,
                 fechaActualizacion: row.fechaActualizacion
             }));
@@ -104,12 +108,12 @@ class Lista {
     }
 
     // Obtener lista por ID
+    // En lista.js - MODIFICAR obtenerPorId()
+
     static async obtenerPorId(id, idUsuario = null) {
         try {
             let query, params;
 
-            // ✅ Si viene idUsuario, verificar (para métodos sin middleware)
-            // ✅ Si NO viene, solo buscar por ID (para métodos CON middleware)
             if (idUsuario !== null) {
                 query = `
                 SELECT l.*, c.nombre as nombreCategoria
@@ -134,7 +138,12 @@ class Lista {
                 return null;
             }
 
-            return rows[0];
+            // ✅ CORRECCIÓN: Convertir importante a booleano antes de devolver
+            const lista = rows[0];
+            return {
+                ...lista,
+                importante: Boolean(lista.importante) // ✅ Conversión explícita
+            };
         } catch (error) {
             throw new Error(`Error al obtener lista: ${error.message}`);
         }
@@ -200,6 +209,7 @@ class Lista {
     }
 
     // Obtener lista con sus tareas
+    // Obtener lista con sus tareas
     static async obtenerConTareas(id, idUsuario = null) {
         try {
             let query, params;
@@ -210,10 +220,12 @@ class Lista {
                 query = `
                 SELECT l.*, c.nombre as nombreCategoria,
                         t.idTarea, t.nombre as nombreTarea, t.descripcion, t.prioridad, 
-                        t.estado, t.fechaCreacion as fechaCreacionTarea, t.fechaVencimiento
+                        t.estado, t.fechaCreacion as fechaCreacionTarea, t.fechaVencimiento,
+                        t.idUsuarioAsignado, u.nombre as nombreUsuarioAsignado, u.email as emailUsuarioAsignado
                 FROM lista l
                 LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
                 LEFT JOIN tarea t ON l.idLista = t.idLista
+                LEFT JOIN usuario u ON t.idUsuarioAsignado = u.idUsuario
                 WHERE l.idLista = ? AND l.idUsuario = ?
                 ORDER BY t.fechaCreacion DESC
             `;
@@ -222,10 +234,12 @@ class Lista {
                 query = `
                 SELECT l.*, c.nombre as nombreCategoria,
                         t.idTarea, t.nombre as nombreTarea, t.descripcion, t.prioridad, 
-                        t.estado, t.fechaCreacion as fechaCreacionTarea, t.fechaVencimiento
+                        t.estado, t.fechaCreacion as fechaCreacionTarea, t.fechaVencimiento,
+                        t.idUsuarioAsignado, u.nombre as nombreUsuarioAsignado, u.email as emailUsuarioAsignado
                 FROM lista l
                 LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
                 LEFT JOIN tarea t ON l.idLista = t.idLista
+                LEFT JOIN usuario u ON t.idUsuarioAsignado = u.idUsuario
                 WHERE l.idLista = ?
                 ORDER BY t.fechaCreacion DESC
             `;
@@ -259,7 +273,10 @@ class Lista {
                         prioridad: row.prioridad,
                         estado: row.estado,
                         fechaCreacion: row.fechaCreacionTarea,
-                        fechaVencimiento: row.fechaVencimiento
+                        fechaVencimiento: row.fechaVencimiento,
+                        idUsuarioAsignado: row.idUsuarioAsignado,
+                        nombreUsuarioAsignado: row.nombreUsuarioAsignado,
+                        emailUsuarioAsignado: row.emailUsuarioAsignado
                     });
                 }
             });
@@ -269,19 +286,48 @@ class Lista {
             throw new Error(`Error al obtener lista con tareas: ${error.message}`);
         }
     }
-
     // Obtener listas por categoría
+    // Obtener listas por categoría
+    // En lista.js - MODIFICAR obtenerPorCategoria()
+
     static async obtenerPorCategoria(idCategoria, idUsuario) {
         try {
             const query = `
-                SELECT l.*, c.nombre as nombreCategoria
-                FROM lista l
-                LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
-                WHERE l.idCategoria = ? AND L.idUsuario = ?
-                ORDER BY l.nombre ASC
-            `;
+            SELECT 
+                l.idLista,
+                l.nombre,
+                l.color,
+                l.icono,
+                l.importante,
+                l.compartible,
+                l.claveCompartir,
+                l.idCategoria,
+                l.idUsuario,
+                l.fechaCreacion,
+                l.fechaActualizacion,
+                c.nombre as nombreCategoria
+            FROM lista l
+            LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
+            WHERE l.idCategoria = ? AND l.idUsuario = ?
+            ORDER BY l.nombre ASC
+        `;
             const [rows] = await db.execute(query, [idCategoria, idUsuario]);
-            return rows;
+
+            // ✅ CORRECCIÓN: Mapear explícitamente importante como booleano
+            return rows.map(row => ({
+                idLista: row.idLista,
+                nombre: row.nombre,
+                color: row.color,
+                icono: row.icono,
+                importante: Boolean(row.importante), // ✅ Conversión explícita
+                compartible: row.compartible,
+                claveCompartir: row.claveCompartir,
+                idCategoria: row.idCategoria,
+                nombreCategoria: row.nombreCategoria,
+                idUsuario: row.idUsuario,
+                fechaCreacion: row.fechaCreacion,
+                fechaActualizacion: row.fechaActualizacion
+            }));
         } catch (error) {
             throw new Error(`Error al obtener listas por categoría: ${error.message}`);
         }

@@ -23,7 +23,7 @@ const listaController = {
 
             console.log('🔵 Creando lista:', { nombre, idCategoria, idUsuario });
 
-            // ✅ CRÍTICO: Verificar si la categoría está compartida
+            //  CRÍTICO: Verificar si la categoría está compartida
             let compartible = false;
             let claveCompartir = null;
 
@@ -63,10 +63,10 @@ const listaController = {
                     nombre.trim(),
                     color || null,
                     icono || null,
-                    importante || false,
+                    Boolean(importante) ? 1 : 0,
                     idCategoria || null,
                     idUsuario,
-                    compartible,
+                    Boolean(compartible) ? 1 : 0,
                     claveCompartir
                 ]
             );
@@ -75,7 +75,7 @@ const listaController = {
             console.log('✅ Lista creada con ID:', idLista);
 
             // ✅ Si la lista es compartible, agregar al propietario en lista_compartida
-            if (compartible) {
+            if (Boolean(compartible)) {
                 await connection.execute(
                     `INSERT INTO lista_compartida 
                      (idLista, idUsuario, rol, esCreador, aceptado, activo, compartidoPor, fechaCompartido)
