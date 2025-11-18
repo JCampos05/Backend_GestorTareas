@@ -10,7 +10,8 @@ const listaRoutes = require('./routes/lista.routes');
 const categoriaRoutes = require('./routes/categoria.routes');
 const usuarioRoutes = require('./routes/usuario.routes');
 const compartirRoutes = require('./routes/compartir.routes');
-// ✅ AGREGAR: Importar rutas de notificaciones
+const notaRoutes = require('./routes/notas.routes')
+//  AGREGAR: Importar rutas de notificaciones
 const notificacionRoutes = require('./routes/compartir/notificacion.routes');
 const verificarToken = require('./middlewares/authMiddleware').verificarToken;
 
@@ -64,6 +65,7 @@ app.use('/api/listas', verificarToken, listaRoutes);
 app.use('/api/categorias', verificarToken, categoriaRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/compartir', verificarToken, compartirRoutes);
+app.use('/api/notas', notaRoutes);
 // ✅ AGREGAR: Rutas específicas para notificaciones
 app.use('/api/compartir/notificaciones', notificacionRoutes);
 

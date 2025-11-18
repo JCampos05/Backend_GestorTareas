@@ -291,3 +291,25 @@ CREATE TABLE auditoria_compartidos (
     ON DELETE CASCADE 
     ON UPDATE CASCADE
 ) ;
+
+CREATE TABLE nota (
+  idNota INT NOT NULL AUTO_INCREMENT,
+  titulo VARCHAR(100) DEFAULT NULL,
+  contenido TEXT DEFAULT NULL,
+  color VARCHAR(7) DEFAULT '#FFF740', -- amarillo por defecto
+  fijada BOOLEAN DEFAULT FALSE,
+  posicion INT DEFAULT 0, -- para ordenamiento
+  idUsuario INT NOT NULL,
+  fechaCreacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  fechaActualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  
+  PRIMARY KEY (idNota),
+  KEY idx_nota_usuario (idUsuario),
+  KEY idx_nota_fijada (fijada, posicion),
+  
+  CONSTRAINT fk_nota_usuario 
+    FOREIGN KEY (idUsuario) 
+    REFERENCES usuario (idUsuario) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE
+) ;
