@@ -1,6 +1,7 @@
-// src/socket/handlers/chat.handler.js
 const ChatService = require('../services/chat.service');
 const Mensaje = require('../../models/mensaje');
+const sseManager = require('../../utils/sseManager'); // ✅ AGREGAR
+const pool = require('../../config/config'); // ✅ AGREGAR
 
 class ChatHandler {
     constructor(io, socket) {
@@ -43,7 +44,7 @@ class ChatHandler {
      */
     async handleJoinList({ idLista }) {
         try {
-            console.log(`📥 Usuario ${this.userEmail} intenta unirse a lista ${idLista}`);
+            console.log(`🔥 Usuario ${this.userEmail} intenta unirse a lista ${idLista}`);
 
             // Validar idLista
             if (!idLista || isNaN(idLista)) {
@@ -129,10 +130,17 @@ class ChatHandler {
     }
 
     /**
-     * Enviar mensaje
-     */
+         * Enviar mensaje
+         */
+    /**
+         * Enviar mensaje
+         */
     async handleSendMessage({ idLista, contenido }) {
+        const connection = await pool.getConnection();
+
         try {
+            await connection.beginTransaction();
+
             console.log(`💬 Mensaje de ${this.userEmail} en lista ${idLista}`);
 
             // Crear mensaje
@@ -157,12 +165,121 @@ class ChatHandler {
 
             console.log(`✅ Mensaje enviado en ${roomName}`);
 
+            // ✅ SISTEMA DE NOTIFICACIONES CON LOGS EXHAUSTIVOS
+            try {
+                console.log('📬 ===== SISTEMA DE NOTIFICACIONES SSE =====');
+
+                // 1️⃣ Obtener IDs de usuarios ONLINE en el chat
+                const [usuariosOnline] = await connection.execute(
+                    `SELECT DISTINCT idUsuario 
+                FROM usuario_actividad 
+                WHERE idLista = ? 
+                AND conectado = TRUE 
+                AND ultimaActividad >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)`,
+                    [idLista]
+                );
+
+                const idsOnline = usuariosOnline.map(u => u.idUsuario);
+                console.log(`👥 Usuarios ONLINE en chat: [${idsOnline.join(', ')}]`);
+                console.log(`👤 Remitente: ${this.userId}`);
+
+                // 2️⃣ Obtener TODOS los usuarios de la lista
+                const [todosUsuarios] = await connection.execute(
+                    `SELECT DISTINCT lc.idUsuario, u.nombre, u.email
+                 FROM lista_compartida lc
+                 INNER JOIN usuario u ON lc.idUsuario = u.idUsuario
+                 WHERE lc.idLista = ? 
+                   AND lc.activo = 1 
+                   AND lc.aceptado = 1`,
+                    [idLista]
+                );
+
+                console.log(`📋 Total usuarios en lista: ${todosUsuarios.length}`);
+
+                // 3️⃣ Filtrar usuarios offline (excluir remitente y online)
+                const usuariosOffline = todosUsuarios.filter(u =>
+                    u.idUsuario !== this.userId && !idsOnline.includes(u.idUsuario)
+                );
+
+                console.log(`🔴 Usuarios OFFLINE: ${usuariosOffline.length}`);
+
+                if (usuariosOffline.length === 0) {
+                    console.log('✅ Todos los usuarios están online o eres el único usuario');
+                    console.log('📬 ========================================\n');
+                    await connection.commit();
+                    return;
+                }
+
+                usuariosOffline.forEach(u => {
+                    console.log(`   - ${u.nombre} (ID: ${u.idUsuario})`);
+                });
+
+                // 4️⃣ Obtener nombre de la lista
+                const [listas] = await connection.execute(
+                    `SELECT nombre FROM lista WHERE idLista = ?`,
+                    [idLista]
+                );
+                const nombreLista = listas[0]?.nombre || 'Lista';
+
+                console.log(`📂 Lista: "${nombreLista}"`);
+
+                // 5️⃣ Crear notificación para cada usuario offline
+                const notificacionController = require('../../controllers/compartir/notificacion.controller');
+
+                let notificacionesEnviadas = 0;
+
+                for (const usuario of usuariosOffline) {
+                    const tituloNotif = `Nuevo mensaje en ${nombreLista}`;
+                    const mensajeNotif = contenido.length > 100
+                        ? contenido.substring(0, 100) + '...'
+                        : contenido;
+
+                    console.log(`\n📤 [${notificacionesEnviadas + 1}/${usuariosOffline.length}] Notificando a ${usuario.nombre}`);
+
+                    try {
+                        await notificacionController.crearNotificacion(
+                            connection,
+                            parseInt(usuario.idUsuario),
+                            'mensaje_chat',
+                            tituloNotif,
+                            mensajeNotif,
+                            {
+                                idLista: parseInt(idLista),
+                                listaId: parseInt(idLista),
+                                idMensaje: mensaje.idMensaje,
+                                listaNombre: nombreLista,
+                                nombreRemitente: this.userName,
+                                emailRemitente: this.userEmail
+                            }
+                        );
+
+                        notificacionesEnviadas++;
+                        console.log(`   ✅ Notificación SSE enviada`);
+                    } catch (notifError) {
+                        console.error(`   ❌ Error:`, notifError.message);
+                    }
+                }
+
+                console.log(`\n📊 Resumen: ${notificacionesEnviadas}/${usuariosOffline.length} notificaciones enviadas`);
+                console.log('📬 ========================================\n');
+
+            } catch (sseError) {
+                console.error('⚠️ Error CRÍTICO en sistema de notificaciones:', sseError);
+                console.error('Stack:', sseError.stack);
+                // No hacemos rollback, el mensaje ya se envió correctamente
+            }
+
+            await connection.commit();
+
         } catch (error) {
-            console.error('Error en message:send:', error);
+            await connection.rollback();
+            console.error('❌ Error en message:send:', error);
             this.socket.emit('error', {
                 event: 'message:send',
                 message: error.message
             });
+        } finally {
+            connection.release();
         }
     }
 

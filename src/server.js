@@ -16,20 +16,40 @@ const notaRoutes = require('./routes/notas.routes');
 const notificacionRoutes = require('./routes/compartir/notificacion.routes');
 const chatRoutes = require('./routes/chat.routes');
 const verificarToken = require('./middlewares/authMiddleware').verificarToken;
+const sseRoutes = require('./routes/see.routes');
+const estadisticasRoutes = require('./routes/estadisticas.routes');
+
+const notificacionesService = require('./services/notificaciones.service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ CRÍTICO: Crear servidor HTTP primero
 const server = http.createServer(app);
 
-// Middlewares
+// ✅ CORS MEJORADO - CRÍTICO PARA SSE
 app.use(cors({
     origin: ['http://localhost:4200', 'http://localhost:4300'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'X-Requested-With'],
+    exposedHeaders: ['Content-Type', 'Cache-Control'], // ✅ NUEVO: Para SSE
+    maxAge: 86400 // ✅ NUEVO: Cache preflight 24h
 }));
+
+// ✅ NUEVO: Middleware específico para SSE ANTES de otras rutas
+app.use('/api/sse', (req, res, next) => {
+    // Headers específicos para SSE
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:4200');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control');
+    
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    
+    next();
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -66,6 +86,9 @@ app.get('/healthz', async (req, res) => {
     }
 });
 
+// ✅ IMPORTANTE: SSE debe ir ANTES de otras rutas para evitar conflictos
+app.use('/api/sse', sseRoutes);
+
 // Rutas de API
 app.use('/api/tareas', verificarToken, tareaRoutes);
 app.use('/api/listas', verificarToken, listaRoutes);
@@ -75,6 +98,7 @@ app.use('/api/compartir', verificarToken, compartirRoutes);
 app.use('/api/notas', notaRoutes);
 app.use('/api/compartir/notificaciones', notificacionRoutes);
 app.use('/api/chat', verificarToken, chatRoutes);
+app.use('/api/estadisticas', verificarToken, estadisticasRoutes);
 
 // Ruta raíz
 app.get('/', (req, res) => {
@@ -99,19 +123,23 @@ app.use((err, req, res, next) => {
     });
 });
 
-// ✅ INICIALIZAR SOCKET.IO *ANTES* DE LEVANTAR EL SERVIDOR
 initializeSocket(server);
 
-// ✅ USAR `server.listen()` EN LUGAR DE `app.listen()`
 server.listen(PORT, () => {
     console.log(`🚀 Servidor HTTP corriendo en http://localhost:${PORT}`);
     console.log(`📋 API de Tareas: http://localhost:${PORT}/api/tareas`);
     console.log(`🔔 API de Notificaciones: http://localhost:${PORT}/api/compartir/notificaciones`);
     console.log(`💬 WebSocket Chat: ws://localhost:${PORT}/chat`);
-    console.log(`📡 Socket.IO Namespace: http://localhost:${PORT}/chat\n`);
+    console.log(`📡 Socket.IO Namespace: http://localhost:${PORT}/chat`);
+    console.log(`📡 SSE Endpoint: http://localhost:${PORT}/api/sse/notificaciones`);
+    
+    console.log('\n🔔 Iniciando servicio de notificaciones automáticas...');
+    notificacionesService.iniciar();
+    console.log('✅ Servicio de notificaciones activo\n');
 });
 
-// Manejo de errores del servidor
+const sseManager = require('./utils/sseManager');
+
 server.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
         console.error(`\n❌ ERROR: El puerto ${PORT} ya está en uso`);
@@ -123,9 +151,12 @@ server.on('error', (error) => {
     }
 });
 
-// Cierre graceful
 const gracefulShutdown = () => {
     console.log('\n👋 Cerrando servidor...');
+
+    notificacionesService.detener();
+    sseManager.cleanup();
+    
     server.close(() => {
         console.log('✅ Servidor HTTP cerrado');
         pool.end(() => {

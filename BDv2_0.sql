@@ -6,13 +6,21 @@ CREATE TABLE usuario (
   idUsuario INT NOT NULL AUTO_INCREMENT,
   nombre VARCHAR(100) NOT NULL,
   email VARCHAR(100) NOT NULL,
+  bio TEXT NULL,
+  telefono VARCHAR(20) NULL,
+  ubicacion VARCHAR(100) NULL,
+  cargo VARCHAR(100) NULL,
+  redes_sociales JSON NULL,
+  redes_sociales JSON NULL,
   password VARCHAR(255) NOT NULL,
   fechaRegistro TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-  
+  fecha_actualizacion TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER redes_sociales;
+
   PRIMARY KEY (idUsuario),
   UNIQUE KEY uk_usuario_email (email),
   KEY idx_usuario_email (email)
 ) ;
+CREATE INDEX idx_usuario_ubicacion ON usuario(ubicacion);
 -- ============================================
 -- TABLA: categoria
 -- Descripción: Categorías para organizar listas
@@ -246,7 +254,8 @@ CREATE TABLE invitacion (
 CREATE TABLE notificaciones (
   id INT NOT NULL AUTO_INCREMENT,
   id_usuario INT NOT NULL,
-  tipo ENUM('invitacion_lista','tarea_asignada','comentario','tarea_repetir', 'recordatorio','otro') NOT NULL,
+  tipo ENUM('invitacion_lista','tarea_asignada','comentario','tarea_repetir', 'recordatorio',
+  'mensaje_chat' , 'cambio_rol_lista', 'otro') NOT NULL,
   titulo VARCHAR(255) NOT NULL,
   mensaje TEXT NOT NULL,
   datos_adicionales JSON DEFAULT NULL,

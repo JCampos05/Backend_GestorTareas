@@ -1,14 +1,20 @@
 const Tarea = require("../models/tarea");
-
+const sseManager = require('../utils/sseManager')
 const tareaController = {
-    // ✅ NUEVO: Asignar tarea a usuario
+    //  NUEVO: Asignar tarea a usuario
     asignarTarea: async (req, res) => {
+        const db = require('../config/config');  //  AGREGADO
+        const connection = await db.getConnection();  //  CORREGIDO
+
         try {
+            await connection.beginTransaction();
+
             const { id } = req.params;
             const { idUsuarioAsignado } = req.body;
             const idUsuarioQuienAsigna = req.usuario.idUsuario;
 
             if (!idUsuarioAsignado) {
+                await connection.rollback();
                 return res.status(400).json({
                     success: false,
                     message: "El ID del usuario a asignar es requerido",
@@ -22,11 +28,56 @@ const tareaController = {
             );
 
             if (!resultado.success) {
+                await connection.rollback();
                 return res.status(403).json({
                     success: false,
                     message: resultado.message,
                 });
             }
+
+            // ✅ MEJORADO: Obtener datos completos
+            const [tarea] = await connection.execute(
+                'SELECT * FROM tarea WHERE idTarea = ?',
+                [id]
+            );
+
+            const [usuarioAsignado] = await connection.execute(
+                'SELECT nombre, email FROM usuario WHERE idUsuario = ?',
+                [idUsuarioAsignado]
+            );
+
+            const [usuarioAsignador] = await connection.execute(
+                'SELECT nombre FROM usuario WHERE idUsuario = ?',
+                [idUsuarioQuienAsigna]
+            );
+
+            const [listaInfo] = await connection.execute(
+                'SELECT idLista, nombre FROM lista WHERE idLista = ?',
+                [tarea[0].idLista]
+            );
+
+            // ✅ USAR notificacionController para crear y enviar vía SSE
+            const notificacionController = require('./compartir/notificacion.controller');
+
+            await notificacionController.crearNotificacion(
+                connection,
+                idUsuarioAsignado,
+                'tarea_asignada',
+                '📋 Tarea asignada',
+                `${usuarioAsignador[0]?.nombre || 'Alguien'} te asignó: "${tarea[0].nombre}"`,
+                {
+                    idTarea: parseInt(id),
+                    idLista: listaInfo[0]?.idLista,
+                    listaId: listaInfo[0]?.idLista, // ✅ Ambos formatos para compatibilidad
+                    listaNombre: listaInfo[0]?.nombre || 'Lista',
+                    tareaNombre: tarea[0].nombre,
+                    asignadoPor: usuarioAsignador[0]?.nombre
+                }
+            );
+
+            console.log(`📧 Notificación de asignación enviada a ${usuarioAsignado[0].email}`);
+
+            await connection.commit();
 
             res.status(200).json({
                 success: true,
@@ -34,12 +85,15 @@ const tareaController = {
                 data: resultado.tarea,
             });
         } catch (error) {
+            await connection.rollback();
             console.error("Error en asignarTarea:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al asignar la tarea",
                 error: error.message,
             });
+        } finally {
+            connection.release();
         }
     },
 
@@ -108,7 +162,12 @@ const tareaController = {
     },
 
     crearTarea: async (req, res) => {
+        const db = require('../config/config');
+        const connection = await db.getConnection();
+
         try {
+            await connection.beginTransaction();
+
             const {
                 nombre,
                 descripcion,
@@ -126,28 +185,27 @@ const tareaController = {
 
             const idUsuario = req.usuario.idUsuario;
 
-            // Validación básica
             if (!nombre || nombre.trim() === "") {
+                await connection.rollback();
                 return res.status(400).json({
                     success: false,
                     message: "El nombre de la tarea es requerido",
                 });
             }
 
-            // Validar prioridad
             if (prioridad && !["A", "N", "B"].includes(prioridad)) {
+                await connection.rollback();
                 return res.status(400).json({
                     success: false,
                     message: "Prioridad inválida. Use A (Alta), N (Normal) o B (Baja)",
                 });
             }
 
-            // Validar estado
             if (estado && !["C", "P", "N"].includes(estado)) {
+                await connection.rollback();
                 return res.status(400).json({
                     success: false,
-                    message:
-                        "Estado inválido. Use C (Completada), P (Pendiente) o N (En progreso)",
+                    message: "Estado inválido. Use C (Completada), P (Pendiente) o N (En progreso)",
                 });
             }
 
@@ -167,18 +225,62 @@ const tareaController = {
                 idLista: idLista || null,
             });
 
+            // ✅ MEJORADO: Notificar a usuarios compartidos
+            if (idLista) {
+                const [usuariosCompartidos] = await connection.execute(
+                    `SELECT DISTINCT lc.idUsuario, u.nombre, u.email, l.nombre as listaNombre
+                 FROM lista_compartida lc
+                 INNER JOIN usuario u ON lc.idUsuario = u.idUsuario
+                 INNER JOIN lista l ON lc.idLista = l.idLista
+                 WHERE lc.idLista = ? 
+                       AND lc.idUsuario != ? 
+                       AND lc.activo = 1 
+                       AND lc.aceptado = 1`,
+                    [idLista, idUsuario]
+                );
+
+                console.log(`📋 Notificando a ${usuariosCompartidos.length} usuarios sobre tarea nueva`);
+
+                const notificacionController = require('./compartir/notificacion.controller');
+
+                for (const usuario of usuariosCompartidos) {
+                    await notificacionController.crearNotificacion(
+                        connection,
+                        usuario.idUsuario,
+                        'tarea_asignada',
+                        `📋 Nueva tarea en ${usuario.listaNombre}`,
+                        `Se creó: "${nombre.trim()}"`,
+                        {
+                            idLista: parseInt(idLista),
+                            listaId: parseInt(idLista), // ✅ Ambos formatos
+                            idTarea: nuevaTarea.idTarea,
+                            listaNombre: usuario.listaNombre,
+                            tareaNombre: nombre.trim()
+                        }
+                    );
+
+                    console.log(`📤 Notificación enviada a ${usuario.email}`);
+                }
+            }
+
+            await connection.commit();
+
             res.status(201).json({
                 success: true,
                 message: "Tarea creada exitosamente",
                 data: nuevaTarea,
             });
+
         } catch (error) {
+            await connection.rollback();
             console.error("Error en crearTarea:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al crear la tarea",
                 error: error.message,
             });
+        } finally {
+            connection.release();
         }
     },
 

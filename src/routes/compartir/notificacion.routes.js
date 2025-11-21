@@ -5,7 +5,7 @@ const notificacionController = require('../../controllers/compartir/notificacion
 const authMiddleware = require('../../middlewares/authMiddleware');
 
 // Todas las rutas requieren autenticación
-router.use(authMiddleware);
+router.use(authMiddleware.verificarToken);
 
 // Obtener notificaciones del usuario
 router.get('/', notificacionController.obtenerNotificaciones);

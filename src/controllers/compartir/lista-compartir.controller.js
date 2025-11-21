@@ -16,6 +16,7 @@ const {
 
 const { Invitacion } = require('../../models/categoriaCompartida');
 
+
 // MAPEO DE ROLES: Frontend -> Base de Datos
 const mapearRolFrontendADB = (rolFrontend) => {
     const mapeo = {
@@ -406,28 +407,27 @@ exports.invitarUsuarioLista = async (req, res) => {
             [idUsuarioInvita]
         );
 
-        // ✅ NORMALIZAR tipo de notificación
-        const tipoNotificacion = normalizarTipoNotificacion('invitacion_lista');
+        //  Crear notificación con SSE para cambio de rol
+        const notificacionController = require('./notificacion.controller');
 
-        await connection.query(
-            `INSERT INTO notificaciones 
-             (id_usuario, tipo, titulo, mensaje, datos_adicionales, leida, fecha_creacion) 
-             VALUES (?, ?, ?, ?, ?, FALSE, CURRENT_TIMESTAMP)`,
-            [
-                usuarioInvitado.idUsuario,
-                tipoNotificacion,
-                `${usuarioInvitador[0].nombre} te agregó a una lista`,
-                `Has sido agregado a la lista "${listas[0].nombre}" como ${rol}`,
-                JSON.stringify({
-                    listaId: parseInt(idLista),
-                    listaNombre: listas[0].nombre,
-                    invitadoPor: usuarioInvitador[0].nombre,
-                    invitadoPorId: idUsuarioInvita,
-                    rol: rol,
-                    tipoReal: 'invitacion_lista'
-                })
-            ]
+        await notificacionController.crearNotificacion(
+            connection,
+            parseInt(idUsuarioModificar),
+            'cambio_rol_lista',
+            'Tu rol ha sido modificado',
+            `${usuarioQueModifica[0].nombre} cambió tu rol en "${listaInfo[0].nombre}" a ${nuevoRol}`,
+            {
+                idLista: parseInt(idLista),
+                listaId: parseInt(idLista),
+                listaNombre: listaInfo[0].nombre,
+                nuevoRol: mapearRolDBaFrontend(nuevoRolDB), //  Rol en formato frontend
+                rolAnterior: usuarioEnLista.length > 0 ? mapearRolDBaFrontend(usuarioEnLista[0].rol) : null,
+                modificadoPor: usuarioQueModifica[0].nombre,
+                modificadoPorId: idUsuario
+            }
         );
+
+        console.log('📤 Notificación SSE enviada por cambio de rol');
 
         try {
             await connection.query(
@@ -537,9 +537,9 @@ exports.modificarRolLista = async (req, res) => {
         }
 
         const esPropietario = lista[0].idUsuario === idUsuario;
-        
+
         console.log('👤 Verificando si es admin de lista', idLista);
-        
+
         // Verificar si es admin de la lista
         let esAdmin = esPropietario;
         if (!esPropietario) {
@@ -547,7 +547,7 @@ exports.modificarRolLista = async (req, res) => {
                 'SELECT rol FROM lista_compartida WHERE idLista = ? AND idUsuario = ? AND activo = TRUE',
                 [idLista, idUsuario]
             );
-            
+
             esAdmin = permisoLista.length > 0 && permisoLista[0].rol === 'admin';
             console.log('✅ Es admin por lista_compartida:', esAdmin);
         }
@@ -567,7 +567,7 @@ exports.modificarRolLista = async (req, res) => {
 
         if (usuarioEnLista.length === 0) {
             console.log('⚠️ Usuario no está en lista_compartida, verificando acceso por categoría...');
-            
+
             // Verificar si tiene acceso por categoría
             if (lista[0].idCategoria) {
                 const [accesoCategoria] = await connection.execute(
@@ -577,7 +577,7 @@ exports.modificarRolLista = async (req, res) => {
 
                 if (accesoCategoria.length > 0) {
                     console.log('✅ Usuario tiene acceso por categoría, creando registro en lista_compartida...');
-                    
+
                     // Crear registro en lista_compartida
                     await connection.execute(
                         `INSERT INTO lista_compartida 
@@ -585,7 +585,7 @@ exports.modificarRolLista = async (req, res) => {
                          VALUES (?, ?, ?, ?, TRUE, TRUE, FALSE, CURRENT_TIMESTAMP)`,
                         [idLista, idUsuarioModificar, nuevoRolDB, lista[0].idUsuario]
                     );
-                    
+
                     console.log('✅ Usuario agregado a lista_compartida con rol:', nuevoRolDB);
                 } else {
                     await connection.rollback();
@@ -614,7 +614,7 @@ exports.modificarRolLista = async (req, res) => {
                 await connection.rollback();
                 return res.status(404).json({ error: 'No se pudo actualizar el rol' });
             }
-            
+
             console.log('✅ Rol actualizado en BD a:', nuevoRolDB);
         }
 
@@ -634,30 +634,10 @@ exports.modificarRolLista = async (req, res) => {
             [idUsuario]
         );
 
-        // Crear notificación
-        const tipoNotificacion = normalizarTipoNotificacion('cambio_rol_lista');
+        // ✅ USAR notificacionController para SSE
+        const notificacionController = require('./notificacion.controller');
 
-        await connection.execute(
-            `INSERT INTO notificaciones 
-             (id_usuario, tipo, titulo, mensaje, datos_adicionales, leida, fecha_creacion) 
-             VALUES (?, ?, ?, ?, ?, FALSE, CURRENT_TIMESTAMP)`,
-            [
-                idUsuarioModificar,
-                tipoNotificacion,
-                'Tu rol ha sido modificado',
-                `${usuarioQueModifica[0].nombre} cambió tu rol en "${listaInfo[0].nombre}" a ${nuevoRol}`,
-                JSON.stringify({
-                    listaId: parseInt(idLista),
-                    listaNombre: listaInfo[0].nombre,
-                    nuevoRol: nuevoRol,
-                    modificadoPor: usuarioQueModifica[0].nombre,
-                    modificadoPorId: idUsuario,
-                    tipoReal: 'cambio_rol_lista'
-                })
-            ]
-        );
-
-        console.log('✅ Notificación creada');
+        console.log('📤 Notificación SSE enviada por cambio de rol');
 
         // Registrar auditoría
         try {
@@ -707,32 +687,142 @@ exports.modificarRolLista = async (req, res) => {
     }
 };
 
+
 /**
  * Revocar acceso a lista
  */
 exports.revocarAccesoLista = async (req, res) => {
+    const connection = await db.getConnection();
+
     try {
+        await connection.beginTransaction();
+
         const { idLista, idUsuarioRevocar } = req.params;
         const idUsuario = req.usuario.idUsuario;
 
-        const revocado = await ListaCompartida.revocar(idLista, idUsuarioRevocar);
+        console.log('🚫 Revocando acceso:', { idLista, idUsuarioRevocar, solicitadoPor: idUsuario });
 
-        if (!revocado) {
-            return res.status(404).json({ error: 'Usuario no encontrado o es creador' });
+        // ✅ Verificar permisos del solicitante
+        const [lista] = await connection.execute(
+            'SELECT idUsuario FROM lista WHERE idLista = ?',
+            [idLista]
+        );
+
+        if (lista.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ error: 'Lista no encontrada' });
         }
 
-        await AuditoriaCompartidos.registrar({
-            tipo: 'lista',
-            idEntidad: idLista,
-            idUsuario,
-            accion: 'revocar_acceso',
-            detalles: { idUsuarioRevocado: idUsuarioRevocar }
+        const esPropietario = lista[0].idUsuario === idUsuario;
+
+        if (!esPropietario) {
+            const [permisoLista] = await connection.execute(
+                'SELECT rol FROM lista_compartida WHERE idLista = ? AND idUsuario = ? AND activo = TRUE',
+                [idLista, idUsuario]
+            );
+
+            const esAdmin = permisoLista.length > 0 && permisoLista[0].rol === 'admin';
+
+            if (!esAdmin) {
+                await connection.rollback();
+                return res.status(403).json({ error: 'No tienes permisos para revocar accesos' });
+            }
+        }
+
+        // ✅ Obtener datos antes de revocar
+        const [usuarioRevocado] = await connection.execute(
+            `SELECT u.nombre, u.email, lc.esCreador, l.nombre as listaNombre
+             FROM lista_compartida lc
+             INNER JOIN usuario u ON lc.idUsuario = u.idUsuario
+             INNER JOIN lista l ON lc.idLista = l.idLista
+             WHERE lc.idLista = ? AND lc.idUsuario = ?`,
+            [idLista, idUsuarioRevocar]
+        );
+
+        if (usuarioRevocado.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ error: 'Usuario no encontrado en esta lista' });
+        }
+
+        if (usuarioRevocado[0].esCreador) {
+            await connection.rollback();
+            return res.status(403).json({ error: 'No se puede revocar el acceso del creador' });
+        }
+
+        // ✅ Revocar acceso
+        const [result] = await connection.execute(
+            'UPDATE lista_compartida SET activo = FALSE WHERE idLista = ? AND idUsuario = ? AND esCreador = FALSE',
+            [idLista, idUsuarioRevocar]
+        );
+
+        if (result.affectedRows === 0) {
+            await connection.rollback();
+            return res.status(404).json({ error: 'No se pudo revocar el acceso' });
+        }
+
+        // ✅ Obtener datos del solicitante
+        const [usuarioSolicitante] = await connection.execute(
+            'SELECT nombre FROM usuario WHERE idUsuario = ?',
+            [idUsuario]
+        );
+
+        // ✅ CREAR NOTIFICACIÓN **ANTES** DEL COMMIT
+        const notificacionController = require('./notificacion.controller');
+
+        await notificacionController.crearNotificacion(
+            connection,
+            idUsuarioRevocar,
+            'otro',
+            ' Acceso revocado',
+            `${usuarioSolicitante[0]?.nombre || 'Un administrador'} te quitó el acceso a "${usuarioRevocado[0].listaNombre}"`,
+            {
+                idLista: parseInt(idLista),
+                listaId: parseInt(idLista),
+                listaNombre: usuarioRevocado[0].listaNombre,
+                revocadoPor: usuarioSolicitante[0]?.nombre,
+                revocadoPorId: idUsuario
+            }
+        );
+
+        console.log('📤 Notificación de revocación enviada');
+
+        // ✅ Auditoría
+        await connection.execute(
+            `INSERT INTO auditoria_compartidos 
+             (tipo, idEntidad, idUsuario, accion, detalles, fecha)
+             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            [
+                'lista',
+                parseInt(idLista),
+                idUsuario,
+                'revocar_acceso',
+                JSON.stringify({
+                    idUsuarioRevocado: idUsuarioRevocar,
+                    nombreUsuarioRevocado: usuarioRevocado[0].nombre
+                })
+            ]
+        );
+
+        // ✅ COMMIT AL FINAL
+        await connection.commit();
+
+        res.json({
+            mensaje: 'Acceso revocado exitosamente',
+            usuario: {
+                nombre: usuarioRevocado[0].nombre,
+                email: usuarioRevocado[0].email
+            }
         });
 
-        res.json({ mensaje: 'Acceso revocado exitosamente' });
     } catch (error) {
-        console.error('Error al revocar acceso:', error);
-        res.status(500).json({ error: 'Error al revocar acceso' });
+        await connection.rollback();
+        console.error('❌ Error al revocar acceso:', error);
+        res.status(500).json({
+            error: 'Error al revocar acceso',
+            detalles: error.message
+        });
+    } finally {
+        connection.release();
     }
 };
 
@@ -1138,9 +1228,9 @@ exports.infoCompartidosLista = async (req, res) => {
     } catch (error) {
         console.error('❌ Error al obtener info compartidos:', error);
         console.error('Stack:', error.stack);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Error al obtener información de compartidos',
-            detalles: error.message 
+            detalles: error.message
         });
     }
 };
