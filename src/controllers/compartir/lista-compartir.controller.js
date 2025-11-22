@@ -301,7 +301,7 @@ exports.unirseListaPorClave = async (req, res) => {
 };
 
 /**
- * Invitar usuario a lista
+ * Invitar usuario a lista - VERSIÓN CORREGIDA COMPLETA
  */
 exports.invitarUsuarioLista = async (req, res) => {
     const connection = await db.getConnection();
@@ -324,6 +324,7 @@ exports.invitarUsuarioLista = async (req, res) => {
             return res.status(400).json({ error: 'Rol inválido' });
         }
 
+        // Verificar permisos del usuario que invita
         const [permisos] = await connection.query(
             `SELECT 'propietario' as rol FROM lista 
              WHERE idLista = ? AND idUsuario = ?
@@ -339,6 +340,7 @@ exports.invitarUsuarioLista = async (req, res) => {
             return res.status(403).json({ error: 'No tienes permisos para invitar usuarios' });
         }
 
+        // Buscar usuario por email
         const [usuarios] = await connection.query(
             'SELECT idUsuario, nombre, email FROM usuario WHERE email = ?',
             [email]
@@ -352,6 +354,7 @@ exports.invitarUsuarioLista = async (req, res) => {
 
         const usuarioInvitado = usuarios[0];
 
+        // Verificar que no sea el propietario
         const [propietario] = await connection.query(
             'SELECT idUsuario FROM lista WHERE idLista = ? AND idUsuario = ?',
             [idLista, usuarioInvitado.idUsuario]
@@ -363,6 +366,7 @@ exports.invitarUsuarioLista = async (req, res) => {
             return res.status(400).json({ error: 'El usuario ya es propietario de esta lista' });
         }
 
+        // Verificar si ya está compartida
         const [yaCompartida] = await connection.query(
             'SELECT * FROM lista_compartida WHERE idLista = ? AND idUsuario = ?',
             [idLista, usuarioInvitado.idUsuario]
@@ -374,6 +378,7 @@ exports.invitarUsuarioLista = async (req, res) => {
             return res.status(400).json({ error: 'El usuario ya tiene acceso a esta lista' });
         }
 
+        // Obtener información de la lista
         const [listas] = await connection.query(
             'SELECT nombre, compartible, claveCompartir FROM lista WHERE idLista = ?',
             [idLista]
@@ -385,6 +390,7 @@ exports.invitarUsuarioLista = async (req, res) => {
             return res.status(404).json({ error: 'Lista no encontrada' });
         }
 
+        // ✅ Insertar en lista_compartida
         await connection.query(
             `INSERT INTO lista_compartida 
              (idLista, idUsuario, rol, compartidoPor, aceptado, activo, esCreador) 
@@ -394,6 +400,7 @@ exports.invitarUsuarioLista = async (req, res) => {
 
         console.log('✅ Registro creado en lista_compartida con rol:', rolDB);
 
+        // Marcar lista como compartible si no lo está
         if (!listas[0].compartible) {
             await connection.query(
                 'UPDATE lista SET compartible = TRUE WHERE idLista = ?',
@@ -402,33 +409,34 @@ exports.invitarUsuarioLista = async (req, res) => {
             console.log('✅ Lista marcada como compartible');
         }
 
+        // Obtener nombre del usuario que invita
         const [usuarioInvitador] = await connection.query(
             'SELECT nombre FROM usuario WHERE idUsuario = ?',
             [idUsuarioInvita]
         );
 
-        //  Crear notificación con SSE para cambio de rol
+        // ✅ CREAR NOTIFICACIÓN CORRECTA
         const notificacionController = require('./notificacion.controller');
 
         await notificacionController.crearNotificacion(
             connection,
-            parseInt(idUsuarioModificar),
-            'cambio_rol_lista',
-            'Tu rol ha sido modificado',
-            `${usuarioQueModifica[0].nombre} cambió tu rol en "${listaInfo[0].nombre}" a ${nuevoRol}`,
+            parseInt(usuarioInvitado.idUsuario),
+            'invitacion_lista',
+            'Nueva invitación a lista',
+            `${usuarioInvitador[0].nombre} te invitó a "${listas[0].nombre}" como ${rol}`,
             {
                 idLista: parseInt(idLista),
                 listaId: parseInt(idLista),
-                listaNombre: listaInfo[0].nombre,
-                nuevoRol: mapearRolDBaFrontend(nuevoRolDB), //  Rol en formato frontend
-                rolAnterior: usuarioEnLista.length > 0 ? mapearRolDBaFrontend(usuarioEnLista[0].rol) : null,
-                modificadoPor: usuarioQueModifica[0].nombre,
-                modificadoPorId: idUsuario
+                listaNombre: listas[0].nombre,
+                rol: rol,
+                invitadoPor: usuarioInvitador[0].nombre,
+                invitadoPorId: idUsuarioInvita
             }
         );
 
-        console.log('📤 Notificación SSE enviada por cambio de rol');
+        console.log('📤 Notificación SSE enviada por invitación');
 
+        // Registrar auditoría
         try {
             await connection.query(
                 `INSERT INTO auditoria_compartidos 
@@ -525,9 +533,9 @@ exports.modificarRolLista = async (req, res) => {
             return res.status(400).json({ error: 'Rol inválido' });
         }
 
-        // ✅ Verificar que el solicitante sea propietario o admin
+        // Verificar que el solicitante sea propietario o admin
         const [lista] = await connection.execute(
-            'SELECT idUsuario, idCategoria FROM lista WHERE idLista = ?',
+            'SELECT idUsuario, nombre, idCategoria FROM lista WHERE idLista = ?',
             [idLista]
         );
 
@@ -538,8 +546,6 @@ exports.modificarRolLista = async (req, res) => {
 
         const esPropietario = lista[0].idUsuario === idUsuario;
 
-        console.log('👤 Verificando si es admin de lista', idLista);
-
         // Verificar si es admin de la lista
         let esAdmin = esPropietario;
         if (!esPropietario) {
@@ -547,9 +553,7 @@ exports.modificarRolLista = async (req, res) => {
                 'SELECT rol FROM lista_compartida WHERE idLista = ? AND idUsuario = ? AND activo = TRUE',
                 [idLista, idUsuario]
             );
-
             esAdmin = permisoLista.length > 0 && permisoLista[0].rol === 'admin';
-            console.log('✅ Es admin por lista_compartida:', esAdmin);
         }
 
         if (!esAdmin) {
@@ -557,9 +561,7 @@ exports.modificarRolLista = async (req, res) => {
             return res.status(403).json({ error: 'No tienes permisos para modificar roles' });
         }
 
-        console.log('✅ Es propietario de la lista:', esPropietario);
-
-        // ✅ Verificar si el usuario a modificar está en lista_compartida
+        // Verificar si el usuario a modificar está en lista_compartida
         const [usuarioEnLista] = await connection.execute(
             'SELECT * FROM lista_compartida WHERE idLista = ? AND idUsuario = ?',
             [idLista, idUsuarioModificar]
@@ -568,7 +570,6 @@ exports.modificarRolLista = async (req, res) => {
         if (usuarioEnLista.length === 0) {
             console.log('⚠️ Usuario no está en lista_compartida, verificando acceso por categoría...');
 
-            // Verificar si tiene acceso por categoría
             if (lista[0].idCategoria) {
                 const [accesoCategoria] = await connection.execute(
                     'SELECT * FROM categoria_compartida WHERE idCategoria = ? AND idUsuario = ? AND activo = TRUE',
@@ -576,16 +577,12 @@ exports.modificarRolLista = async (req, res) => {
                 );
 
                 if (accesoCategoria.length > 0) {
-                    console.log('✅ Usuario tiene acceso por categoría, creando registro en lista_compartida...');
-
-                    // Crear registro en lista_compartida
                     await connection.execute(
                         `INSERT INTO lista_compartida 
                          (idLista, idUsuario, rol, compartidoPor, aceptado, activo, esCreador, fechaCompartido)
                          VALUES (?, ?, ?, ?, TRUE, TRUE, FALSE, CURRENT_TIMESTAMP)`,
                         [idLista, idUsuarioModificar, nuevoRolDB, lista[0].idUsuario]
                     );
-
                     console.log('✅ Usuario agregado a lista_compartida con rol:', nuevoRolDB);
                 } else {
                     await connection.rollback();
@@ -618,15 +615,10 @@ exports.modificarRolLista = async (req, res) => {
             console.log('✅ Rol actualizado en BD a:', nuevoRolDB);
         }
 
-        // Obtener información del usuario modificado
+        // ✅ Obtener información necesaria para la notificación
         const [usuarioModificado] = await connection.execute(
             'SELECT nombre, email FROM usuario WHERE idUsuario = ?',
             [idUsuarioModificar]
-        );
-
-        const [listaInfo] = await connection.execute(
-            'SELECT nombre FROM lista WHERE idLista = ?',
-            [idLista]
         );
 
         const [usuarioQueModifica] = await connection.execute(
@@ -634,8 +626,25 @@ exports.modificarRolLista = async (req, res) => {
             [idUsuario]
         );
 
-        // ✅ USAR notificacionController para SSE
+        // ✅ CREAR NOTIFICACIÓN SSE
         const notificacionController = require('./notificacion.controller');
+
+        await notificacionController.crearNotificacion(
+            connection,
+            parseInt(idUsuarioModificar),
+            'cambio_rol_lista',
+            '🔄 Cambio de rol',
+            `${usuarioQueModifica[0].nombre} cambió tu rol en "${lista[0].nombre}" a ${nuevoRol}`,
+            {
+                idLista: parseInt(idLista),
+                listaId: parseInt(idLista),
+                listaNombre: lista[0].nombre,
+                nuevoRol: nuevoRol, // ✅ Rol en formato frontend
+                rolAnterior: usuarioEnLista.length > 0 ? mapearRolDBaFrontend(usuarioEnLista[0].rol) : null,
+                modificadoPor: usuarioQueModifica[0].nombre,
+                modificadoPorId: idUsuario
+            }
+        );
 
         console.log('📤 Notificación SSE enviada por cambio de rol');
 
@@ -653,7 +662,8 @@ exports.modificarRolLista = async (req, res) => {
                     JSON.stringify({
                         idUsuarioModificado: idUsuarioModificar,
                         nombreUsuarioModificado: usuarioModificado[0].nombre,
-                        nuevoRol: nuevoRol
+                        nuevoRol: nuevoRol,
+                        rolAnterior: usuarioEnLista.length > 0 ? mapearRolDBaFrontend(usuarioEnLista[0].rol) : null
                     })
                 ]
             );

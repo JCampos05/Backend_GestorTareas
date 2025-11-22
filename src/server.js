@@ -26,20 +26,72 @@ const PORT = process.env.PORT || 3000;
 
 const server = http.createServer(app);
 
-// ✅ CORS MEJORADO - CRÍTICO PARA SSE
 app.use(cors({
-    origin: ['http://localhost:4200', 'http://localhost:4300'],
+    origin: function(origin, callback) {
+        // Lista de orígenes permitidos
+        const allowedOrigins = [
+            /^http:\/\/localhost:\d+$/,  // Cualquier puerto localhost (desarrollo)
+            /^http:\/\/127\.0\.0\.1:\d+$/, // IP local con cualquier puerto
+            // Agrega tus dominios de producción aquí cuando los tengas:
+            // /^https:\/\/(www\.)?tudominio\.com$/,
+            // /^https:\/\/app\.tudominio\.com$/,
+            // 'https://tudominio.com',
+            // 'https://www.tudominio.com'
+        ];
+
+        // Permitir requests sin origin (Postman, apps móviles, etc.)
+        if (!origin) {
+            return callback(null, true);
+        }
+
+        // Verificar si el origin está permitido
+        const isAllowed = allowedOrigins.some(pattern => {
+            if (pattern instanceof RegExp) {
+                return pattern.test(origin);
+            }
+            return pattern === origin;
+        });
+
+        if (isAllowed) {
+            callback(null, true);
+        } else {
+            console.warn(`❌ CORS bloqueado para origen: ${origin}`);
+            callback(new Error('No permitido por CORS'));
+        }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'X-Requested-With'],
-    exposedHeaders: ['Content-Type', 'Cache-Control'], // ✅ NUEVO: Para SSE
-    maxAge: 86400 // ✅ NUEVO: Cache preflight 24h
+    exposedHeaders: ['Content-Type', 'Cache-Control'],
+    maxAge: 86400
 }));
 
-// ✅ NUEVO: Middleware específico para SSE ANTES de otras rutas
+// Middleware específico para SSE ANTES de otras rutas
 app.use('/api/sse', (req, res, next) => {
-    // Headers específicos para SSE
-    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:4200');
+    const origin = req.headers.origin;
+    
+    // Lista de orígenes permitidos para SSE
+    const allowedOrigins = [
+        /^http:\/\/localhost:\d+$/,
+        /^http:\/\/127\.0\.0\.1:\d+$/,
+        // Agrega dominios de producción:
+        // /^https:\/\/(www\.)?tudominio\.com$/,
+    ];
+
+    // Verificar si el origin está permitido
+    if (origin) {
+        const isAllowed = allowedOrigins.some(pattern => {
+            if (pattern instanceof RegExp) {
+                return pattern.test(origin);
+            }
+            return pattern === origin;
+        });
+
+        if (isAllowed) {
+            res.setHeader('Access-Control-Allow-Origin', origin);
+        }
+    }
+    
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control');
