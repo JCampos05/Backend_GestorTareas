@@ -76,45 +76,130 @@ class NotificacionesService {
         const connection = await pool.getConnection();
 
         try {
-            // Buscar tareas con recordatorio activo que NO se hayan notificado
+            console.log('🔔 Verificando recordatorios múltiples...');
+
+            // ✅ Buscar tareas con recordatorio JSON activo
             const [tareas] = await connection.execute(
                 `SELECT 
-                    t.idTarea,
-                    t.nombre as tareaNombre,
-                    t.descripcion,
-                    t.recordatorio,
-                    t.fechaVencimiento,
-                    t.idUsuario,
-                    t.idLista,
-                    u.nombre as nombreUsuario,
-                    u.email as emailUsuario,
-                    l.nombre as nombreLista
-                FROM tarea t
-                INNER JOIN usuario u ON t.idUsuario = u.idUsuario
-                LEFT JOIN lista l ON t.idLista = l.idLista
-                WHERE t.recordatorio IS NOT NULL
-                  AND t.recordatorio <= NOW()
-                  AND t.estado != 'C'
-                  AND NOT EXISTS (
-                      SELECT 1 
-                      FROM notificaciones n 
-                      WHERE n.tipo = 'recordatorio' 
-                        AND JSON_EXTRACT(n.datos_adicionales, '$.tareaId') = t.idTarea
-                        AND n.fecha_creacion >= DATE_SUB(NOW(), INTERVAL 1 HOUR)
-                  )
-                LIMIT 50`
+                t.idTarea,
+                t.nombre as tareaNombre,
+                t.descripcion,
+                t.recordatorio,
+                t.fechaVencimiento,
+                t.idUsuario,
+                t.idLista,
+                u.nombre as nombreUsuario,
+                u.email as emailUsuario,
+                l.nombre as nombreLista
+            FROM tarea t
+            INNER JOIN usuario u ON t.idUsuario = u.idUsuario
+            LEFT JOIN lista l ON t.idLista = l.idLista
+            WHERE t.recordatorio IS NOT NULL
+              AND t.estado != 'C'
+            LIMIT 100`
             );
 
             if (tareas.length === 0) {
-                console.log('   ℹ️  No hay recordatorios pendientes');
+                console.log('   ℹ️  No hay tareas con recordatorios');
                 return;
             }
 
-            console.log(`   🔔 Encontrados ${tareas.length} recordatorios pendientes`);
+            console.log(`   📋 Analizando ${tareas.length} tareas con recordatorios...`);
 
-            // Crear notificación para cada tarea
+            let recordatoriosProcesados = 0;
+
             for (const tarea of tareas) {
-                await this.crearNotificacionRecordatorio(connection, tarea);
+                try {
+                    // ✅ Parsear recordatorios (puede ser JSON o DATETIME antiguo)
+                    let recordatorios = [];
+
+                    if (typeof tarea.recordatorio === 'string') {
+                        try {
+                            recordatorios = JSON.parse(tarea.recordatorio);
+                        } catch (parseError) {
+                            // Si no es JSON, podría ser un DATETIME antiguo
+                            const fechaAntigua = new Date(tarea.recordatorio);
+                            if (!isNaN(fechaAntigua.getTime())) {
+                                recordatorios = [{
+                                    fecha: tarea.recordatorio,
+                                    notificado: false,
+                                    tipo: 'personalizado'
+                                }];
+                            }
+                        }
+                    } else if (Array.isArray(tarea.recordatorio)) {
+                        recordatorios = tarea.recordatorio;
+                    }
+
+                    if (!Array.isArray(recordatorios) || recordatorios.length === 0) {
+                        continue;
+                    }
+
+                    // ✅ Verificar cada recordatorio pendiente
+                    const ahora = new Date();
+                    let seModificaron = false;
+
+                    for (let i = 0; i < recordatorios.length; i++) {
+                        const recordatorio = recordatorios[i];
+
+                        // Saltar si ya fue notificado
+                        if (recordatorio.notificado) {
+                            continue;
+                        }
+
+                        const fechaRecordatorio = new Date(recordatorio.fecha);
+
+                        // ✅ Si llegó la hora del recordatorio
+                        if (fechaRecordatorio <= ahora) {
+                            console.log(`   🔔 Recordatorio pendiente encontrado:`);
+                            console.log(`      Tarea: ${tarea.tareaNombre}`);
+                            console.log(`      Usuario: ${tarea.emailUsuario}`);
+                            console.log(`      Tipo: ${recordatorio.tipo}`);
+                            console.log(`      Fecha: ${recordatorio.fecha}`);
+
+                            // ✅ Crear notificación
+                            await this.crearNotificacionRecordatorio(connection, {
+                                ...tarea,
+                                tipoRecordatorio: recordatorio.tipo
+                            });
+
+                            // ✅ Marcar como notificado
+                            recordatorios[i].notificado = true;
+                            recordatorios[i].fechaNotificado = new Date().toISOString();
+                            seModificaron = true;
+                            recordatoriosProcesados++;
+
+                            // ✅ Registrar en historial
+                            try {
+                                await connection.execute(
+                                    `INSERT INTO historial_recordatorios 
+                                (idTarea, idUsuario, fechaRecordatorio, tipoRecordatorio, notificado, fechaNotificado)
+                                VALUES (?, ?, ?, ?, TRUE, NOW())`,
+                                    [tarea.idTarea, tarea.idUsuario, recordatorio.fecha, recordatorio.tipo]
+                                );
+                            } catch (histError) {
+                                console.warn('⚠️ Error al guardar en historial:', histError.message);
+                            }
+                        }
+                    }
+
+                    // ✅ Si se modificaron recordatorios, actualizar en BD
+                    if (seModificaron) {
+                        await connection.execute(
+                            `UPDATE tarea SET recordatorio = ? WHERE idTarea = ?`,
+                            [JSON.stringify(recordatorios), tarea.idTarea]
+                        );
+                    }
+
+                } catch (tareaError) {
+                    console.error(`   ❌ Error al procesar tarea ${tarea.idTarea}:`, tareaError.message);
+                }
+            }
+
+            if (recordatoriosProcesados > 0) {
+                console.log(`   ✅ ${recordatoriosProcesados} recordatorios procesados`);
+            } else {
+                console.log('   ℹ️  No hay recordatorios pendientes en este momento');
             }
 
         } catch (error) {
@@ -128,64 +213,81 @@ class NotificacionesService {
     /**
      * Crear y enviar notificación de recordatorio
      */
-    async crearNotificacionRecordatorio(connection, tarea) {
-        try {
-            const titulo = 'Recordatorio de tarea';
-            const mensaje = `Recordatorio: "${tarea.tareaNombre}"${
-                tarea.fechaVencimiento 
-                    ? ` - Vence: ${new Date(tarea.fechaVencimiento).toLocaleDateString()}` 
-                    : ''
-            }`;
+async crearNotificacionRecordatorio(connection, tarea) {
+    try {
+        // ✅ Personalizar título según tipo de recordatorio
+        const tiposRecordatorio = {
+            '1_dia_antes': '1 día antes',
+            '1_hora_antes': '1 hora antes',
+            'en_el_momento': 'ahora',
+            'personalizado': ''
+        };
 
-            const datos = {
-                tareaId: tarea.idTarea,
-                tareaNombre: tarea.tareaNombre,
-                descripcion: tarea.descripcion,
-                fechaVencimiento: tarea.fechaVencimiento,
-                recordatorio: tarea.recordatorio,
-                idLista: tarea.idLista,
-                nombreLista: tarea.nombreLista
-            };
+        const tipoTexto = tiposRecordatorio[tarea.tipoRecordatorio] || '';
+        const titulo = tipoTexto 
+            ? `Recordatorio (${tipoTexto}): ${tarea.tareaNombre}` 
+            : `Recordatorio: ${tarea.tareaNombre}`;
 
-            // Insertar en base de datos
-            const [result] = await connection.execute(
-                `INSERT INTO notificaciones 
-                (id_usuario, tipo, titulo, mensaje, datos_adicionales, leida, fecha_creacion) 
-                VALUES (?, ?, ?, ?, ?, 0, NOW())`,
-                [tarea.idUsuario, 'recordatorio', titulo, mensaje, JSON.stringify(datos)]
-            );
-
-            const idNotificacion = result.insertId;
-
-            console.log(`   ✅ Recordatorio creado: ID ${idNotificacion} para usuario ${tarea.emailUsuario}`);
-
-            // 📡 Enviar vía SSE en tiempo real
-            const notificacionSSE = {
-                event: 'nueva_notificacion',
-                id: idNotificacion,
-                idNotificacion,
-                idUsuario: parseInt(tarea.idUsuario),
-                tipo: 'recordatorio',
-                titulo,
-                mensaje,
-                datos,
-                leida: false,
-                fechaCreacion: new Date().toISOString()
-            };
-
-            const enviado = sseManager.sendToUser(parseInt(tarea.idUsuario), notificacionSSE);
-
-            if (enviado) {
-                console.log(`   📡 SSE enviado exitosamente a usuario ${tarea.emailUsuario}`);
-            } else {
-                console.log(`   ⚠️  Usuario ${tarea.emailUsuario} no conectado, notificación guardada en BD`);
-            }
-
-        } catch (error) {
-            console.error('   ❌ Error al crear notificación de recordatorio:', error);
-            throw error;
+        let mensaje = `Recordatorio: "${tarea.tareaNombre}"`;
+        
+        if (tarea.fechaVencimiento) {
+            mensaje += ` - Vence: ${new Date(tarea.fechaVencimiento).toLocaleDateString('es-MX', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric'
+            })}`;
         }
+
+        const datos = {
+            tareaId: tarea.idTarea,
+            tareaNombre: tarea.tareaNombre,
+            descripcion: tarea.descripcion,
+            fechaVencimiento: tarea.fechaVencimiento,
+            tipoRecordatorio: tarea.tipoRecordatorio,
+            idLista: tarea.idLista,
+            nombreLista: tarea.nombreLista
+        };
+
+        // ✅ Insertar en base de datos
+        const [result] = await connection.execute(
+            `INSERT INTO notificaciones 
+            (id_usuario, tipo, titulo, mensaje, datos_adicionales, leida, fecha_creacion) 
+            VALUES (?, ?, ?, ?, ?, 0, NOW())`,
+            [tarea.idUsuario, 'recordatorio', titulo, mensaje, JSON.stringify(datos)]
+        );
+
+        const idNotificacion = result.insertId;
+
+        console.log(`   ✅ Notificación de recordatorio creada: ID ${idNotificacion}`);
+
+        // ✅ Enviar vía SSE en tiempo real
+        const notificacionSSE = {
+            event: 'nueva_notificacion',
+            id: idNotificacion,
+            idNotificacion,
+            idUsuario: parseInt(tarea.idUsuario),
+            tipo: 'recordatorio',
+            titulo,
+            mensaje,
+            datos,
+            leida: false,
+            fechaCreacion: new Date().toISOString()
+        };
+
+        const sseManager = require('../utils/sseManager');
+        const enviado = sseManager.sendToUser(parseInt(tarea.idUsuario), notificacionSSE);
+
+        if (enviado) {
+            console.log(`   📡 SSE enviado exitosamente a ${tarea.emailUsuario}`);
+        } else {
+            console.log(`   ⚠️ Usuario ${tarea.emailUsuario} no conectado, notificación guardada en BD`);
+        }
+
+    } catch (error) {
+        console.error('   ❌ Error al crear notificación de recordatorio:', error);
+        throw error;
     }
+}
 
     /**
      * Verificar tareas repetitivas que deben crear nuevas instancias

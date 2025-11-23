@@ -9,8 +9,8 @@ CREATE TABLE usuario (
   bio TEXT NULL,
   telefono VARCHAR(20) NULL,
   ubicacion VARCHAR(100) NULL,
+  zona_horaria VARCHAR(100) NULL,
   cargo VARCHAR(100) NULL,
-  redes_sociales JSON NULL,
   redes_sociales JSON NULL,
   password VARCHAR(255) NOT NULL,
   fechaRegistro TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
@@ -98,7 +98,7 @@ CREATE TABLE tarea (
   miDia BOOLEAN DEFAULT FALSE,
   pasos JSON DEFAULT NULL,
   notas TEXT,
-  recordatorio DATETIME DEFAULT NULL,
+  recordatorio JSON DEFAULT NULL,
   repetir BOOLEAN DEFAULT FALSE,
   ultimaRepeticion DATETIME NULL,
   tipoRepeticion ENUM('diario','laborales','semanal','mensual','personalizado') DEFAULT NULL,
@@ -131,6 +131,7 @@ CREATE TABLE tarea (
     ON UPDATE CASCADE
 ) ;
 
+CREATE INDEX idx_tarea_recordatorio ON tarea((CAST(recordatorio AS CHAR(100)) COLLATE utf8mb4_bin));
 -- ============================================
 -- TABLA: categoria_compartida
 -- Descripción: Relación de categorías compartidas con usuarios
@@ -322,3 +323,181 @@ CREATE TABLE nota (
     ON DELETE CASCADE 
     ON UPDATE CASCADE
 ) ;
+
+
+CREATE TABLE  zonas_horarias (
+  idZona INT NOT NULL AUTO_INCREMENT,
+  zona VARCHAR(100) NOT NULL COMMENT 'IANA timezone ID (Ej: America/Mexico_City)',
+  nombre VARCHAR(200) NOT NULL COMMENT 'Nombre descriptivo',
+  region VARCHAR(100) NOT NULL COMMENT 'Continente/Región',
+  offset_actual VARCHAR(10) NOT NULL COMMENT 'Offset actual (Ej: GMT-6)',
+  offset_minutos INT NOT NULL COMMENT 'Offset en minutos desde UTC',
+  usa_dst BOOLEAN DEFAULT FALSE COMMENT 'Usa Daylight Saving Time',
+  activa BOOLEAN DEFAULT TRUE,
+  orden INT DEFAULT 0 COMMENT 'Para ordenamiento en UI',
+  
+  PRIMARY KEY (idZona),
+  UNIQUE KEY uk_zona (zona),
+  KEY idx_region (region),
+  KEY idx_offset (offset_minutos)
+);
+
+
+-- ========== AMÉRICA ==========
+INSERT INTO zonas_horarias (zona, nombre, region, offset_actual, offset_minutos, usa_dst, orden) VALUES
+
+-- América del Norte
+('America/New_York', 'Nueva York (Este)', 'América del Norte', 'GMT-5', -300, TRUE, 1),
+('America/Chicago', 'Chicago (Centro)', 'América del Norte', 'GMT-6', -360, TRUE, 2),
+('America/Denver', 'Denver (Montaña)', 'América del Norte', 'GMT-7', -420, TRUE, 3),
+('America/Los_Angeles', 'Los Ángeles (Pacífico)', 'América del Norte', 'GMT-8', -480, TRUE, 4),
+('America/Anchorage', 'Anchorage (Alaska)', 'América del Norte', 'GMT-9', -540, TRUE, 5),
+('Pacific/Honolulu', 'Honolulu (Hawái)', 'América del Norte', 'GMT-10', -600, FALSE, 6),
+
+-- México
+('America/Mexico_City', 'Ciudad de México (Centro)', 'México', 'GMT-6', -360, FALSE, 10),
+('America/Cancun', 'Cancún (Sureste)', 'México', 'GMT-5', -300, FALSE, 11),
+('America/Monterrey', 'Monterrey (Centro)', 'México', 'GMT-6', -360, FALSE, 12),
+('America/Tijuana', 'Tijuana (Noroeste)', 'México', 'GMT-8', -480, TRUE, 13),
+('America/Mazatlan', 'Mazatlán (Pacífico)', 'México', 'GMT-7', -420, TRUE, 14),
+('America/Hermosillo', 'Hermosillo (Sonora)', 'México', 'GMT-7', -420, FALSE, 15),
+
+-- América Central
+('America/Guatemala', 'Guatemala', 'América Central', 'GMT-6', -360, FALSE, 20),
+('America/El_Salvador', 'El Salvador', 'América Central', 'GMT-6', -360, FALSE, 21),
+('America/Tegucigalpa', 'Tegucigalpa (Honduras)', 'América Central', 'GMT-6', -360, FALSE, 22),
+('America/Managua', 'Managua (Nicaragua)', 'América Central', 'GMT-6', -360, FALSE, 23),
+('America/Costa_Rica', 'San José (Costa Rica)', 'América Central', 'GMT-6', -360, FALSE, 24),
+('America/Panama', 'Ciudad de Panamá', 'América Central', 'GMT-5', -300, FALSE, 25),
+('America/Belize', 'Belmopan (Belice)', 'América Central', 'GMT-6', -360, FALSE, 26),
+
+-- Caribe
+('America/Havana', 'La Habana (Cuba)', 'Caribe', 'GMT-5', -300, TRUE, 30),
+('America/Jamaica', 'Kingston (Jamaica)', 'Caribe', 'GMT-5', -300, FALSE, 31),
+('America/Port-au-Prince', 'Puerto Príncipe (Haití)', 'Caribe', 'GMT-5', -300, TRUE, 32),
+('America/Santo_Domingo', 'Santo Domingo (Rep. Dominicana)', 'Caribe', 'GMT-4', -240, FALSE, 33),
+('America/Puerto_Rico', 'San Juan (Puerto Rico)', 'Caribe', 'GMT-4', -240, FALSE, 34),
+
+-- América del Sur
+('America/Bogota', 'Bogotá (Colombia)', 'América del Sur', 'GMT-5', -300, FALSE, 40),
+('America/Caracas', 'Caracas (Venezuela)', 'América del Sur', 'GMT-4', -240, FALSE, 41),
+('America/Guayaquil', 'Guayaquil (Ecuador)', 'América del Sur', 'GMT-5', -300, FALSE, 42),
+('America/Lima', 'Lima (Perú)', 'América del Sur', 'GMT-5', -300, FALSE, 43),
+('America/La_Paz', 'La Paz (Bolivia)', 'América del Sur', 'GMT-4', -240, FALSE, 44),
+('America/Santiago', 'Santiago (Chile)', 'América del Sur', 'GMT-3', -180, TRUE, 45),
+('America/Argentina/Buenos_Aires', 'Buenos Aires (Argentina)', 'América del Sur', 'GMT-3', -180, FALSE, 46),
+('America/Montevideo', 'Montevideo (Uruguay)', 'América del Sur', 'GMT-3', -180, FALSE, 47),
+('America/Asuncion', 'Asunción (Paraguay)', 'América del Sur', 'GMT-3', -180, TRUE, 48),
+('America/Sao_Paulo', 'São Paulo (Brasil)', 'América del Sur', 'GMT-3', -180, TRUE, 49),
+('America/Manaus', 'Manaos (Brasil)', 'América del Sur', 'GMT-4', -240, FALSE, 50),
+('America/Fortaleza', 'Fortaleza (Brasil)', 'América del Sur', 'GMT-3', -180, FALSE, 51),
+
+-- ========== EUROPA ==========
+('Europe/London', 'Londres (Reino Unido)', 'Europa Occidental', 'GMT+0', 0, TRUE, 100),
+('Europe/Dublin', 'Dublín (Irlanda)', 'Europa Occidental', 'GMT+0', 0, TRUE, 101),
+('Europe/Lisbon', 'Lisboa (Portugal)', 'Europa Occidental', 'GMT+0', 0, TRUE, 102),
+
+('Europe/Paris', 'París (Francia)', 'Europa Central', 'GMT+1', 60, TRUE, 110),
+('Europe/Madrid', 'Madrid (España)', 'Europa Central', 'GMT+1', 60, TRUE, 111),
+('Europe/Berlin', 'Berlín (Alemania)', 'Europa Central', 'GMT+1', 60, TRUE, 112),
+('Europe/Rome', 'Roma (Italia)', 'Europa Central', 'GMT+1', 60, TRUE, 113),
+('Europe/Amsterdam', 'Ámsterdam (Países Bajos)', 'Europa Central', 'GMT+1', 60, TRUE, 114),
+('Europe/Brussels', 'Bruselas (Bélgica)', 'Europa Central', 'GMT+1', 60, TRUE, 115),
+('Europe/Vienna', 'Viena (Austria)', 'Europa Central', 'GMT+1', 60, TRUE, 116),
+('Europe/Zurich', 'Zúrich (Suiza)', 'Europa Central', 'GMT+1', 60, TRUE, 117),
+('Europe/Prague', 'Praga (Rep. Checa)', 'Europa Central', 'GMT+1', 60, TRUE, 118),
+('Europe/Warsaw', 'Varsovia (Polonia)', 'Europa Central', 'GMT+1', 60, TRUE, 119),
+
+('Europe/Athens', 'Atenas (Grecia)', 'Europa Oriental', 'GMT+2', 120, TRUE, 120),
+('Europe/Bucharest', 'Bucarest (Rumania)', 'Europa Oriental', 'GMT+2', 120, TRUE, 121),
+('Europe/Helsinki', 'Helsinki (Finlandia)', 'Europa Oriental', 'GMT+2', 120, TRUE, 122),
+('Europe/Kiev', 'Kiev (Ucrania)', 'Europa Oriental', 'GMT+2', 120, TRUE, 123),
+('Europe/Moscow', 'Moscú (Rusia)', 'Europa Oriental', 'GMT+3', 180, FALSE, 124),
+('Europe/Istanbul', 'Estambul (Turquía)', 'Europa Oriental', 'GMT+3', 180, FALSE, 125),
+
+-- ========== ASIA ==========
+('Asia/Dubai', 'Dubái (EAU)', 'Medio Oriente', 'GMT+4', 240, FALSE, 200),
+('Asia/Riyadh', 'Riad (Arabia Saudita)', 'Medio Oriente', 'GMT+3', 180, FALSE, 201),
+('Asia/Jerusalem', 'Jerusalén (Israel)', 'Medio Oriente', 'GMT+2', 120, TRUE, 202),
+('Asia/Tehran', 'Teherán (Irán)', 'Medio Oriente', 'GMT+3:30', 210, TRUE, 203),
+
+('Asia/Karachi', 'Karachi (Pakistán)', 'Asia del Sur', 'GMT+5', 300, FALSE, 210),
+('Asia/Kolkata', 'Calcuta (India)', 'Asia del Sur', 'GMT+5:30', 330, FALSE, 211),
+('Asia/Dhaka', 'Daca (Bangladés)', 'Asia del Sur', 'GMT+6', 360, FALSE, 212),
+('Asia/Kathmandu', 'Katmandú (Nepal)', 'Asia del Sur', 'GMT+5:45', 345, FALSE, 213),
+
+('Asia/Bangkok', 'Bangkok (Tailandia)', 'Sudeste Asiático', 'GMT+7', 420, FALSE, 220),
+('Asia/Singapore', 'Singapur', 'Sudeste Asiático', 'GMT+8', 480, FALSE, 221),
+('Asia/Jakarta', 'Yakarta (Indonesia)', 'Sudeste Asiático', 'GMT+7', 420, FALSE, 222),
+('Asia/Manila', 'Manila (Filipinas)', 'Sudeste Asiático', 'GMT+8', 480, FALSE, 223),
+('Asia/Ho_Chi_Minh', 'Ho Chi Minh (Vietnam)', 'Sudeste Asiático', 'GMT+7', 420, FALSE, 224),
+
+('Asia/Shanghai', 'Shanghái (China)', 'Asia Oriental', 'GMT+8', 480, FALSE, 230),
+('Asia/Hong_Kong', 'Hong Kong', 'Asia Oriental', 'GMT+8', 480, FALSE, 231),
+('Asia/Tokyo', 'Tokio (Japón)', 'Asia Oriental', 'GMT+9', 540, FALSE, 232),
+('Asia/Seoul', 'Seúl (Corea del Sur)', 'Asia Oriental', 'GMT+9', 540, FALSE, 233),
+('Asia/Taipei', 'Taipéi (Taiwán)', 'Asia Oriental', 'GMT+8', 480, FALSE, 234),
+
+-- ========== OCEANÍA ==========
+('Australia/Sydney', 'Sídney (Australia)', 'Oceanía', 'GMT+10', 600, TRUE, 300),
+('Australia/Melbourne', 'Melbourne (Australia)', 'Oceanía', 'GMT+10', 600, TRUE, 301),
+('Australia/Brisbane', 'Brisbane (Australia)', 'Oceanía', 'GMT+10', 600, FALSE, 302),
+('Australia/Perth', 'Perth (Australia)', 'Oceanía', 'GMT+8', 480, FALSE, 303),
+('Australia/Adelaide', 'Adelaida (Australia)', 'Oceanía', 'GMT+9:30', 570, TRUE, 304),
+
+('Pacific/Auckland', 'Auckland (Nueva Zelanda)', 'Oceanía', 'GMT+12', 720, TRUE, 310),
+('Pacific/Fiji', 'Suva (Fiyi)', 'Oceanía', 'GMT+12', 720, TRUE, 311),
+
+-- ========== ÁFRICA ==========
+('Africa/Cairo', 'El Cairo (Egipto)', 'África', 'GMT+2', 120, FALSE, 400),
+('Africa/Johannesburg', 'Johannesburgo (Sudáfrica)', 'África', 'GMT+2', 120, FALSE, 401),
+('Africa/Lagos', 'Lagos (Nigeria)', 'África', 'GMT+1', 60, FALSE, 402),
+('Africa/Nairobi', 'Nairobi (Kenia)', 'África', 'GMT+3', 180, FALSE, 403),
+('Africa/Casablanca', 'Casablanca (Marruecos)', 'África', 'GMT+0', 0, TRUE, 404);
+
+-- ✅ PASO 5: Crear vista para facilitar consultas
+CREATE OR REPLACE VIEW v_zonas_horarias_agrupadas AS
+SELECT 
+  region,
+  COUNT(*) as total_zonas,
+  GROUP_CONCAT(zona ORDER BY orden SEPARATOR ', ') as zonas
+FROM zonas_horarias
+WHERE activa = TRUE
+GROUP BY region
+ORDER BY MIN(orden);
+
+-- ✅ PASO 6: Procedimiento para obtener zonas por región
+DELIMITER $$
+DROP PROCEDURE IF EXISTS sp_obtener_zonas_por_region$$
+CREATE PROCEDURE sp_obtener_zonas_por_region(IN p_region VARCHAR(100))
+BEGIN
+  IF p_region IS NULL OR p_region = '' THEN
+    -- Devolver todas las zonas agrupadas por región
+    SELECT 
+      idZona,
+      zona,
+      nombre,
+      region,
+      offset_actual,
+      offset_minutos,
+      usa_dst
+    FROM zonas_horarias
+    WHERE activa = TRUE
+    ORDER BY orden, nombre;
+  ELSE
+    -- Devolver zonas de una región específica
+    SELECT 
+      idZona,
+      zona,
+      nombre,
+      region,
+      offset_actual,
+      offset_minutos,
+      usa_dst
+    FROM zonas_horarias
+    WHERE activa = TRUE 
+      AND region = p_region
+    ORDER BY orden, nombre;
+  END IF;
+END$$
+DELIMITER ;

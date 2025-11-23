@@ -63,7 +63,7 @@ const tareaController = {
                 connection,
                 idUsuarioAsignado,
                 'tarea_asignada',
-                '📋 Tarea asignada',
+                ' Tarea asignada',
                 `${usuarioAsignador[0]?.nombre || 'Alguien'} te asignó: "${tarea[0].nombre}"`,
                 {
                     idTarea: parseInt(id),
@@ -209,6 +209,28 @@ const tareaController = {
                 });
             }
 
+            // ✅ Preparar recordatorio como JSON array si existe
+            let recordatorioJSON = null;
+            if (recordatorio) {
+                // Si ya es un array, usarlo directamente
+                if (Array.isArray(recordatorio)) {
+                    recordatorioJSON = JSON.stringify(recordatorio);
+                }
+                // Si es un string (fecha ISO), convertirlo a formato de array
+                else if (typeof recordatorio === 'string') {
+                    recordatorioJSON = JSON.stringify([{
+                        fecha: recordatorio,
+                        tipo: 'personalizado',
+                        notificado: false,
+                        fechaCreacion: new Date().toISOString()
+                    }]);
+                }
+                // Si ya es JSON string, validarlo
+                else if (typeof recordatorio === 'object') {
+                    recordatorioJSON = JSON.stringify([recordatorio]);
+                }
+            }
+
             const nuevaTarea = await Tarea.crear({
                 idUsuario,
                 nombre: nombre.trim(),
@@ -218,14 +240,14 @@ const tareaController = {
                 fechaVencimiento,
                 pasos,
                 notas,
-                recordatorio,
+                recordatorio: recordatorioJSON,
                 repetir,
                 tipoRepeticion,
                 configRepeticion,
                 idLista: idLista || null,
             });
 
-            // ✅ MEJORADO: Notificar a usuarios compartidos
+            // ✅ Notificar a usuarios compartidos
             if (idLista) {
                 const [usuariosCompartidos] = await connection.execute(
                     `SELECT DISTINCT lc.idUsuario, u.nombre, u.email, l.nombre as listaNombre
@@ -252,7 +274,7 @@ const tareaController = {
                         `Se creó: "${nombre.trim()}"`,
                         {
                             idLista: parseInt(idLista),
-                            listaId: parseInt(idLista), // ✅ Ambos formatos
+                            listaId: parseInt(idLista),
                             idTarea: nuevaTarea.idTarea,
                             listaNombre: usuario.listaNombre,
                             tareaNombre: nombre.trim()
@@ -373,7 +395,7 @@ const tareaController = {
                 fechaVencimiento ||
                 pasos ||
                 notas ||
-                recordatorio ||
+                recordatorio !== undefined ||
                 repetir !== undefined ||
                 tipoRepeticion ||
                 configRepeticion ||
@@ -402,6 +424,45 @@ const tareaController = {
                 });
             }
 
+            // ✅ Preparar recordatorio como JSON array si existe
+            let recordatorioJSON = recordatorio;
+            if (recordatorio !== undefined && recordatorio !== null) {
+                // Si ya es un array, convertirlo a JSON string
+                if (Array.isArray(recordatorio)) {
+                    recordatorioJSON = JSON.stringify(recordatorio);
+                }
+                // Si es un string (fecha ISO), convertirlo a formato de array
+                else if (typeof recordatorio === 'string') {
+                    // Verificar si es un JSON string válido
+                    try {
+                        const parsed = JSON.parse(recordatorio);
+                        if (Array.isArray(parsed)) {
+                            recordatorioJSON = recordatorio; // Ya es JSON string válido
+                        } else {
+                            // Es un string de fecha, convertir a array
+                            recordatorioJSON = JSON.stringify([{
+                                fecha: recordatorio,
+                                tipo: 'personalizado',
+                                notificado: false,
+                                fechaCreacion: new Date().toISOString()
+                            }]);
+                        }
+                    } catch {
+                        // No es JSON, es una fecha ISO
+                        recordatorioJSON = JSON.stringify([{
+                            fecha: recordatorio,
+                            tipo: 'personalizado',
+                            notificado: false,
+                            fechaCreacion: new Date().toISOString()
+                        }]);
+                    }
+                }
+                // Si es un objeto, convertirlo a array JSON
+                else if (typeof recordatorio === 'object') {
+                    recordatorioJSON = JSON.stringify([recordatorio]);
+                }
+            }
+
             const tareaActualizada = await Tarea.actualizar(
                 id,
                 {
@@ -412,7 +473,7 @@ const tareaController = {
                     fechaVencimiento,
                     pasos,
                     notas,
-                    recordatorio,
+                    recordatorio: recordatorioJSON,
                     repetir,
                     tipoRepeticion,
                     configRepeticion,
@@ -442,7 +503,6 @@ const tareaController = {
             });
         }
     },
-
     // Eliminar tarea
     eliminarTarea: async (req, res) => {
         try {
@@ -882,7 +942,241 @@ const tareaController = {
         }
     },
 
+    agregarRecordatorio: async (req, res) => {
+        const db = require('../config/config');
+        const connection = await db.getConnection();
 
+        try {
+            await connection.beginTransaction();
+
+            const { idTarea } = req.params;
+            const { fecha, tipo } = req.body; // tipo: '1_dia_antes', '1_hora_antes', 'personalizado'
+            const idUsuario = req.usuario.idUsuario || req.usuario.id;
+
+            console.log('🔔 Agregando recordatorio:', { idTarea, fecha, tipo, idUsuario });
+
+            // ✅ Validar que la tarea existe y pertenece al usuario
+            const [tareas] = await connection.execute(
+                'SELECT idTarea, nombre, recordatorio, idUsuario FROM tarea WHERE idTarea = ?',
+                [idTarea]
+            );
+
+            if (tareas.length === 0) {
+                await connection.rollback();
+                return res.status(404).json({ error: 'Tarea no encontrada' });
+            }
+
+            const tarea = tareas[0];
+
+            // ✅ Verificar permisos
+            if (tarea.idUsuario !== idUsuario) {
+                await connection.rollback();
+                return res.status(403).json({ error: 'No tienes permisos para modificar esta tarea' });
+            }
+
+            // ✅ Validar fecha
+            const fechaRecordatorio = new Date(fecha);
+            if (isNaN(fechaRecordatorio.getTime())) {
+                await connection.rollback();
+                return res.status(400).json({ error: 'Fecha de recordatorio inválida' });
+            }
+
+            // ✅ Obtener recordatorios actuales
+            let recordatorios = [];
+            if (tarea.recordatorio) {
+                try {
+                    recordatorios = typeof tarea.recordatorio === 'string'
+                        ? JSON.parse(tarea.recordatorio)
+                        : tarea.recordatorio;
+
+                    if (!Array.isArray(recordatorios)) {
+                        recordatorios = [];
+                    }
+                } catch (parseError) {
+                    console.warn('⚠️ Error al parsear recordatorios existentes, iniciando array vacío');
+                    recordatorios = [];
+                }
+            }
+
+            // ✅ Agregar nuevo recordatorio
+            const nuevoRecordatorio = {
+                fecha: fechaRecordatorio.toISOString(),
+                tipo: tipo || 'personalizado',
+                notificado: false,
+                fechaCreacion: new Date().toISOString()
+            };
+
+            recordatorios.push(nuevoRecordatorio);
+
+            // ✅ Ordenar por fecha (más cercanos primero)
+            recordatorios.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+            // ✅ Actualizar en base de datos
+            await connection.execute(
+                'UPDATE tarea SET recordatorio = ? WHERE idTarea = ?',
+                [JSON.stringify(recordatorios), idTarea]
+            );
+
+            await connection.commit();
+
+            console.log('✅ Recordatorio agregado exitosamente');
+
+            res.json({
+                mensaje: 'Recordatorio agregado exitosamente',
+                recordatorios,
+                totalRecordatorios: recordatorios.length
+            });
+
+        } catch (error) {
+            await connection.rollback();
+            console.error('❌ Error al agregar recordatorio:', error);
+            res.status(500).json({
+                error: 'Error al agregar recordatorio',
+                detalle: error.message
+            });
+        } finally {
+            connection.release();
+        }
+    },
+
+    eliminarRecordatorio: async (req, res) => {
+        const db = require('../config/config');
+        const connection = await db.getConnection();
+
+        try {
+            await connection.beginTransaction();
+
+            const { idTarea, indice } = req.params; // indice del recordatorio en el array
+            const idUsuario = req.usuario.idUsuario || req.usuario.id;
+
+            console.log('🗑️ Eliminando recordatorio:', { idTarea, indice, idUsuario });
+
+            // ✅ Validar que la tarea existe
+            const [tareas] = await connection.execute(
+                'SELECT idTarea, recordatorio, idUsuario FROM tarea WHERE idTarea = ?',
+                [idTarea]
+            );
+
+            if (tareas.length === 0) {
+                await connection.rollback();
+                return res.status(404).json({ error: 'Tarea no encontrada' });
+            }
+
+            const tarea = tareas[0];
+
+            // ✅ Verificar permisos
+            if (tarea.idUsuario !== idUsuario) {
+                await connection.rollback();
+                return res.status(403).json({ error: 'No tienes permisos para modificar esta tarea' });
+            }
+
+            // ✅ Obtener recordatorios actuales
+            let recordatorios = [];
+            if (tarea.recordatorio) {
+                try {
+                    recordatorios = typeof tarea.recordatorio === 'string'
+                        ? JSON.parse(tarea.recordatorio)
+                        : tarea.recordatorio;
+                } catch (parseError) {
+                    await connection.rollback();
+                    return res.status(400).json({ error: 'Error al leer recordatorios' });
+                }
+            }
+
+            // ✅ Validar índice
+            const idx = parseInt(indice);
+            if (idx < 0 || idx >= recordatorios.length) {
+                await connection.rollback();
+                return res.status(400).json({ error: 'Índice de recordatorio inválido' });
+            }
+
+            // ✅ Eliminar recordatorio
+            recordatorios.splice(idx, 1);
+
+            // ✅ Actualizar en base de datos
+            const nuevoValor = recordatorios.length > 0 ? JSON.stringify(recordatorios) : null;
+            await connection.execute(
+                'UPDATE tarea SET recordatorio = ? WHERE idTarea = ?',
+                [nuevoValor, idTarea]
+            );
+
+            await connection.commit();
+
+            console.log('✅ Recordatorio eliminado exitosamente');
+
+            res.json({
+                mensaje: 'Recordatorio eliminado exitosamente',
+                recordatorios,
+                totalRecordatorios: recordatorios.length
+            });
+
+        } catch (error) {
+            await connection.rollback();
+            console.error('❌ Error al eliminar recordatorio:', error);
+            res.status(500).json({
+                error: 'Error al eliminar recordatorio',
+                detalle: error.message
+            });
+        } finally {
+            connection.release();
+        }
+    },
+
+    obtenerRecordatorios: async (req, res) => {
+        const db = require('../config/config');
+        try {
+            const { idTarea } = req.params;
+            const idUsuario = req.usuario.idUsuario || req.usuario.id;
+
+            // ✅ Obtener tarea con recordatorios
+            const [tareas] = await db.execute(
+                'SELECT idTarea, nombre, recordatorio, idUsuario FROM tarea WHERE idTarea = ?',
+                [idTarea]
+            );
+
+            if (tareas.length === 0) {
+                return res.status(404).json({ error: 'Tarea no encontrada' });
+            }
+
+            const tarea = tareas[0];
+
+            // ✅ Verificar permisos
+            if (tarea.idUsuario !== idUsuario) {
+                return res.status(403).json({ error: 'No tienes permisos para ver esta tarea' });
+            }
+
+            // ✅ Parsear recordatorios
+            let recordatorios = [];
+            if (tarea.recordatorio) {
+                try {
+                    recordatorios = typeof tarea.recordatorio === 'string'
+                        ? JSON.parse(tarea.recordatorio)
+                        : tarea.recordatorio;
+
+                    if (!Array.isArray(recordatorios)) {
+                        recordatorios = [];
+                    }
+                } catch (parseError) {
+                    console.warn('⚠️ Error al parsear recordatorios');
+                    recordatorios = [];
+                }
+            }
+
+            res.json({
+                idTarea: tarea.idTarea,
+                nombreTarea: tarea.nombre,
+                recordatorios,
+                totalRecordatorios: recordatorios.length
+            });
+
+        } catch (error) {
+            console.error('❌ Error al obtener recordatorios:', error);
+            res.status(500).json({
+                error: 'Error al obtener recordatorios',
+                detalle: error.message
+            });
+        }
+    },
 };
 //  Función auxiliar para calcular próxima fecha
 function calcularProximaFecha(fechaBase, tipoRepeticion, configRepeticion) {
@@ -929,5 +1223,7 @@ function calcularProximaFecha(fechaBase, tipoRepeticion, configRepeticion) {
 
     return fecha.toISOString().split('T')[0];
 }
+
+
 
 module.exports = tareaController;

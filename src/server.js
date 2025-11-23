@@ -18,8 +18,9 @@ const chatRoutes = require('./routes/chat.routes');
 const verificarToken = require('./middlewares/authMiddleware').verificarToken;
 const sseRoutes = require('./routes/see.routes');
 const estadisticasRoutes = require('./routes/estadisticas.routes');
-
 const notificacionesService = require('./services/notificaciones.service');
+const zonasRoutes = require('./routes/zonas.routes');
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -151,6 +152,7 @@ app.use('/api/notas', notaRoutes);
 app.use('/api/compartir/notificaciones', notificacionRoutes);
 app.use('/api/chat', verificarToken, chatRoutes);
 app.use('/api/estadisticas', verificarToken, estadisticasRoutes);
+app.use('/api/zonas', zonasRoutes);
 
 // Ruta raíz
 app.get('/', (req, res) => {

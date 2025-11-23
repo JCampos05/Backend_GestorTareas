@@ -43,4 +43,15 @@ router.get('/lista/:idLista', authMiddleware, tareaController.obtenerPorLista);
 //  NUEVO: Ruta para verificar tareas repetidas (cron job manual)
 router.post('/verificar-repetidas', authMiddleware, tareaController.verificarTareasRepetidas);
 
+// ========== RECORDATORIOS ==========
+
+// Obtener recordatorios de una tarea
+router.get('/:idTarea/recordatorios', tareaController.obtenerRecordatorios);
+
+// Agregar recordatorio a una tarea
+router.post('/:idTarea/recordatorios', tareaController.agregarRecordatorio);
+
+// Eliminar recordatorio específico (por índice)
+router.delete('/:idTarea/recordatorios/:indice', tareaController.eliminarRecordatorio);
+
 module.exports = router;
