@@ -6,6 +6,7 @@ CREATE TABLE usuario (
   idUsuario INT NOT NULL AUTO_INCREMENT,
   nombre VARCHAR(100) NOT NULL,
   email VARCHAR(100) NOT NULL,
+  emailVerificado BOOLEAN DEFAULT FALSE,
   bio TEXT NULL,
   telefono VARCHAR(20) NULL,
   ubicacion VARCHAR(100) NULL,
@@ -501,3 +502,84 @@ BEGIN
   END IF;
 END$$
 DELIMITER ;
+
+
+
+-- ============================================
+-- TABLA: verificacion_email
+-- Descripción: Sistema de verificación de correo
+-- ============================================
+CREATE TABLE verificacion_email (
+  idVerificacion INT NOT NULL AUTO_INCREMENT,
+  idUsuario INT NOT NULL,
+  codigo VARCHAR(6) NOT NULL,
+  fechaGeneracion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  fechaExpiracion DATETIME NOT NULL,
+  intentos INT DEFAULT 0,
+  verificado BOOLEAN DEFAULT FALSE,
+  ipGeneracion VARCHAR(45) NULL,
+  
+  PRIMARY KEY (idVerificacion),
+  KEY idx_codigo (codigo),
+  KEY idx_usuario_activo (idUsuario, verificado),
+  KEY idx_expiracion (fechaExpiracion),
+  
+  CONSTRAINT fk_verificacion_usuario 
+    FOREIGN KEY (idUsuario) 
+    REFERENCES usuario (idUsuario) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE
+);
+
+-- ============================================
+-- Agregar campo emailVerificado a usuario
+-- ============================================
+ADD KEY idx_usuario_verificado (emailVerificado);
+
+-- ============================================
+-- Procedimiento: Limpiar códigos expirados
+-- ============================================
+DELIMITER $$
+DROP PROCEDURE IF EXISTS sp_limpiar_codigos_expirados$$
+CREATE PROCEDURE sp_limpiar_codigos_expirados()
+BEGIN
+  -- Eliminar códigos expirados hace más de 24 horas
+  DELETE FROM verificacion_email 
+  WHERE fechaExpiracion < DATE_SUB(NOW(), INTERVAL 24 HOUR);
+  
+  SELECT ROW_COUNT() as codigosEliminados;
+END$$
+DELIMITER ;
+
+-- ============================================
+-- Evento programado: Limpieza automática
+-- ============================================
+DROP EVENT IF EXISTS evt_limpiar_codigos_expirados;
+CREATE EVENT evt_limpiar_codigos_expirados
+ON SCHEDULE EVERY 1 HOUR
+DO
+  CALL sp_limpiar_codigos_expirados();
+
+-- ============================================
+-- Vista: Usuarios pendientes de verificación
+-- ============================================
+CREATE OR REPLACE VIEW v_usuarios_sin_verificar AS
+SELECT 
+  u.idUsuario,
+  u.nombre,
+  u.email,
+  u.fechaRegistro,
+  TIMESTAMPDIFF(HOUR, u.fechaRegistro, NOW()) as horasSinVerificar,
+  ve.codigo,
+  ve.fechaExpiracion,
+  ve.intentos,
+  CASE 
+    WHEN ve.fechaExpiracion < NOW() THEN 'EXPIRADO'
+    WHEN ve.intentos >= 3 THEN 'BLOQUEADO'
+    ELSE 'ACTIVO'
+  END as estadoCodigo
+FROM usuario u
+LEFT JOIN verificacion_email ve ON u.idUsuario = ve.idUsuario 
+  AND ve.verificado = FALSE
+WHERE u.emailVerificado = FALSE
+ORDER BY u.fechaRegistro DESC;    

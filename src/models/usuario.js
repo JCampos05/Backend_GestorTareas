@@ -25,9 +25,11 @@ const Usuario = {
                 idUsuario, 
                 nombre, 
                 email, 
+                emailVerificado,
                 bio,
                 telefono,
                 ubicacion,
+                zona_horaria,
                 cargo,
                 redes_sociales,
                 fechaRegistro,
@@ -134,7 +136,15 @@ const Usuario = {
 
     validarPassword: async (password, hashedPassword) => {
         return await bcrypt.compare(password, hashedPassword);
-    }
+    },
+
+    buscarPorIdConPassword: async (idUsuario) => {
+        const [rows] = await db.query(
+            'SELECT * FROM usuario WHERE idUsuario = ?',
+            [idUsuario]
+        );
+        return rows[0];
+    },
 };
 
 module.exports = Usuario;
