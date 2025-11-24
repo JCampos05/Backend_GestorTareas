@@ -10,10 +10,17 @@ const { requerirEmailVerificado } = require('../middlewares/verificacionMiddlewa
 router.get('/verificar', UsuarioController.verificarUsuarios);
 router.post('/registrar', UsuarioController.registrar);
 router.post('/login', UsuarioController.login);
-// 📌 Obtener perfil público de otro usuario
+// Obtener perfil público de otro usuario
 router.get('/:idUsuario/perfil', verificarToken, UsuarioController.obtenerPerfilPublico);
+
 // ============================================
-// RUTAS DE VERIFICACIÓN DE EMAIL (NUEVAS) ✨
+// RUTAS DE RECUPERACIÓN DE CONTRASEÑA (NUEVAS) 
+// ============================================
+router.post('/recuperar-password', UsuarioController.solicitarRecuperacionPassword);
+router.post('/verificar-recuperacion', UsuarioController.verificarCodigoRecuperacion);
+router.post('/establecer-nueva-password', UsuarioController.establecerNuevaPassword);
+// ============================================
+// RUTAS DE VERIFICACIÓN DE EMAIL (NUEVAS) 
 // ============================================
 router.post('/verificar-email', UsuarioController.verificarEmail);
 router.post('/reenviar-codigo', UsuarioController.reenviarCodigo);

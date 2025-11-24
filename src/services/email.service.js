@@ -136,6 +136,40 @@ class EmailService {
       throw new Error('No se pudo enviar el email de cambio de contraseña');
     }
   }
+
+  async enviarCodigoRecuperacionPassword(email, nombre, codigo) {
+    try {
+      let html = await this.cargarTemplate('recuperacion-password.html');
+
+      html = this.reemplazarPlaceholders(html, {
+        NOMBRE: nombre,
+        CODIGO: codigo,
+        ANIO: new Date().getFullYear(),
+        FRONTEND_URL: obtenerFrontendUrl()
+      });
+
+      const mailOptions = {
+        from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM_ADDRESS}>`,
+        to: email,
+        subject: '🔐 Código de Recuperación de Contraseña - Taskeer',
+        html: html,
+        text: `Hola ${nombre},\n\nTu código de recuperación de contraseña es: ${codigo}\n\nEste código expira en 15 minutos.\n\nSi no solicitaste este cambio, ignora este mensaje.`
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email de recuperación enviado:', info.messageId);
+      console.log('📧 Destinatario:', email);
+
+      return {
+        success: true,
+        messageId: info.messageId,
+        destinatario: email
+      };
+    } catch (error) {
+      console.error('❌ Error al enviar email de recuperación:', error);
+      throw new Error('No se pudo enviar el email de recuperación');
+    }
+  }
 }
 
 module.exports = new EmailService();

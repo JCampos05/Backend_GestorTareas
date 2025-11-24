@@ -620,6 +620,254 @@ const UsuarioController = {
             res.status(500).json({ error: 'Error al obtener perfil' });
         }
     },
+    // ============================================
+    // SOLICITAR RECUPERACIÓN DE CONTRASEÑA (NUEVO)
+    // ============================================
+    // ============================================
+    // SOLICITAR RECUPERACIÓN DE CONTRASEÑA (CORREGIDO)
+    // ============================================
+    solicitarRecuperacionPassword: async (req, res) => {
+        try {
+            const { email } = req.body;
+
+            if (!email) {
+                return res.status(400).json({
+                    error: 'EMAIL_REQUERIDO',
+                    mensaje: 'El email es requerido'
+                });
+            }
+
+            const Usuario = require('../models/usuario');
+            const verificacionService = require('../services/verificacion.service');
+            const emailService = require('../services/email.service');
+
+            // Buscar usuario por email
+            const usuario = await Usuario.buscarPorEmail(email);
+
+            // Por seguridad, siempre responder exitosamente aunque el email no exista
+            if (!usuario) {
+                return res.json({
+                    mensaje: 'Si el email existe, recibirás un código de recuperación',
+                    emailEnviado: false
+                });
+            }
+
+            // Verificar cooldown
+            const cooldownCheck = await verificacionService.puedeReenviarCodigo(usuario.idUsuario);
+            if (!cooldownCheck.puede) {
+                return res.status(429).json({
+                    error: 'COOLDOWN_ACTIVO',
+                    mensaje: cooldownCheck.message,
+                    segundosRestantes: cooldownCheck.segundosRestantes
+                });
+            }
+
+            // Verificar límite diario
+            const limiteCheck = await verificacionService.verificarLimiteDiario(usuario.idUsuario);
+            if (!limiteCheck.permitido) {
+                return res.status(429).json({
+                    error: 'LIMITE_ALCANZADO',
+                    mensaje: limiteCheck.message
+                });
+            }
+
+            // Generar código
+            const codigo = verificacionService.generarCodigo();
+            const ipCliente = req.ip || req.connection.remoteAddress;
+
+            await verificacionService.guardarCodigo(usuario.idUsuario, codigo, ipCliente);
+
+            // 🔥 CAMBIO AQUÍ: Usar el nuevo método
+            await emailService.enviarCodigoRecuperacionPassword(
+                usuario.email,
+                usuario.nombre,
+                codigo
+            );
+
+            console.log(`📧 Código de recuperación enviado a: ${email}`);
+
+            res.json({
+                mensaje: 'Código de recuperación enviado exitosamente',
+                emailEnviado: true,
+                // Por seguridad, incluir datos ofuscados
+                emailOfuscado: email.replace(/(.{3})(.*)(@.*)/, '$1***$3')
+            });
+
+        } catch (error) {
+            console.error('❌ Error al solicitar recuperación:', error);
+            res.status(500).json({
+                error: 'ERROR_SERVIDOR',
+                mensaje: 'Error al procesar la solicitud'
+            });
+        }
+    },
+
+    // ============================================
+    // VERIFICAR CÓDIGO DE RECUPERACIÓN (NUEVO)
+    // ============================================
+    verificarCodigoRecuperacion: async (req, res) => {
+        try {
+            const { email, codigo } = req.body;
+
+            if (!email || !codigo) {
+                return res.status(400).json({
+                    error: 'DATOS_INCOMPLETOS',
+                    mensaje: 'Email y código son requeridos'
+                });
+            }
+
+            if (codigo.length !== 6) {
+                return res.status(400).json({
+                    error: 'CODIGO_INVALIDO',
+                    mensaje: 'El código debe tener 6 dígitos'
+                });
+            }
+
+            const Usuario = require('../models/usuario');
+            const verificacionService = require('../services/verificacion.service');
+
+            // Buscar usuario
+            const usuario = await Usuario.buscarPorEmail(email);
+
+            if (!usuario) {
+                return res.status(404).json({
+                    error: 'USUARIO_NO_ENCONTRADO',
+                    mensaje: 'Usuario no encontrado'
+                });
+            }
+
+            // Verificar código
+            const resultado = await verificacionService.verificarCodigo(usuario.idUsuario, codigo);
+
+            if (!resultado.success) {
+                let statusCode = 400;
+                if (resultado.error === 'EXPIRADO') statusCode = 410;
+                if (resultado.error === 'NO_CODIGO') statusCode = 404;
+
+                return res.status(statusCode).json({
+                    error: resultado.error,
+                    mensaje: resultado.message,
+                    intentosRestantes: resultado.intentosRestantes
+                });
+            }
+
+            // ✅ Código válido - generar token temporal para cambio de contraseña
+            const jwt = require('jsonwebtoken');
+            const SECRET_KEY = process.env.JWT_SECRET || 'tu_clave_secreta_aqui';
+
+            const tokenTemporal = jwt.sign(
+                {
+                    idUsuario: usuario.idUsuario,
+                    email: usuario.email,
+                    tipo: 'recuperacion_password'
+                },
+                SECRET_KEY,
+                { expiresIn: '15m' } // Solo 15 minutos para cambiar la contraseña
+            );
+
+            console.log(`✅ Código de recuperación verificado para usuario ${usuario.idUsuario}`);
+
+            res.json({
+                mensaje: 'Código verificado correctamente',
+                tokenTemporal: tokenTemporal,
+                idUsuario: usuario.idUsuario
+            });
+
+        } catch (error) {
+            console.error('❌ Error al verificar código de recuperación:', error);
+            res.status(500).json({
+                error: 'ERROR_SERVIDOR',
+                mensaje: 'Error al verificar el código'
+            });
+        }
+    },
+
+    // ============================================
+    // ESTABLECER NUEVA CONTRASEÑA (NUEVO)
+    // ============================================
+    establecerNuevaPassword: async (req, res) => {
+        try {
+            const { tokenTemporal, nuevaPassword } = req.body;
+
+            if (!tokenTemporal || !nuevaPassword) {
+                return res.status(400).json({
+                    error: 'DATOS_INCOMPLETOS',
+                    mensaje: 'Token y nueva contraseña son requeridos'
+                });
+            }
+
+            if (nuevaPassword.length < 6) {
+                return res.status(400).json({
+                    error: 'PASSWORD_INVALIDA',
+                    mensaje: 'La contraseña debe tener al menos 6 caracteres'
+                });
+            }
+
+            const jwt = require('jsonwebtoken');
+            const bcrypt = require('bcrypt');
+            const db = require('../config/config');
+            const SECRET_KEY = process.env.JWT_SECRET || 'tu_clave_secreta_aqui';
+
+            // Verificar token temporal
+            let decoded;
+            try {
+                decoded = jwt.verify(tokenTemporal, SECRET_KEY);
+            } catch (error) {
+                return res.status(401).json({
+                    error: 'TOKEN_INVALIDO',
+                    mensaje: 'Token inválido o expirado'
+                });
+            }
+
+            // Verificar que sea un token de recuperación
+            if (decoded.tipo !== 'recuperacion_password') {
+                return res.status(403).json({
+                    error: 'TOKEN_NO_AUTORIZADO',
+                    mensaje: 'Token no autorizado para esta operación'
+                });
+            }
+
+            // Hashear nueva contraseña
+            const hashedPassword = await bcrypt.hash(nuevaPassword, 10);
+
+            // Actualizar contraseña
+            const [result] = await db.query(
+                'UPDATE usuario SET password = ? WHERE idUsuario = ?',
+                [hashedPassword, decoded.idUsuario]
+            );
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({
+                    error: 'USUARIO_NO_ENCONTRADO',
+                    mensaje: 'Usuario no encontrado'
+                });
+            }
+
+            console.log(`✅ Contraseña actualizada para usuario ${decoded.idUsuario}`);
+
+            // Generar nuevo token de sesión normal
+            const tokenSesion = jwt.sign(
+                {
+                    idUsuario: decoded.idUsuario,
+                    email: decoded.email
+                },
+                SECRET_KEY,
+                { expiresIn: '7d' }
+            );
+
+            res.json({
+                mensaje: 'Contraseña actualizada exitosamente',
+                token: tokenSesion
+            });
+
+        } catch (error) {
+            console.error('❌ Error al establecer nueva contraseña:', error);
+            res.status(500).json({
+                error: 'ERROR_SERVIDOR',
+                mensaje: 'Error al actualizar la contraseña'
+            });
+        }
+    }
 };
 
 module.exports = UsuarioController;
