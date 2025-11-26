@@ -6,10 +6,10 @@ const listaController = {
     // Crear nueva lista
     crearLista: async (req, res) => {
         const connection = await db.getConnection();
-        
+
         try {
             await connection.beginTransaction();
-            
+
             const { nombre, color, icono, importante, idCategoria } = req.body;
             const idUsuario = req.usuario.idUsuario;
 
@@ -36,10 +36,10 @@ const listaController = {
                 if (categoria.length > 0 && categoria[0].compartible) {
                     console.log('✅ Categoría está compartida, heredando estado...');
                     compartible = true;
-                    
+
                     // Generar clave única para la lista
                     claveCompartir = generarClaveCompartir();
-                    
+
                     let intentos = 0;
                     while (intentos < 10) {
                         const [existe] = await connection.execute(
@@ -50,7 +50,7 @@ const listaController = {
                         claveCompartir = generarClaveCompartir();
                         intentos++;
                     }
-                    
+
                     console.log('🔑 Clave generada para nueva lista:', claveCompartir);
                 }
             }
@@ -262,8 +262,13 @@ const listaController = {
     obtenerConTareas: async (req, res) => {
         try {
             const { idLista } = req.params;
-            // ✅ El middleware verificarPermisoLista('ver') ya validó acceso
-            const lista = await Lista.obtenerConTareas(idLista);
+            const idUsuario = req.usuario.idUsuario; // Obtener ID del usuario autenticado
+
+            console.log('🔍 obtenerConTareas:', { idLista, idUsuario });
+
+            // El middleware verificarPermisoLista('ver') ya validó acceso
+            // CRÍTICO: Pasar idUsuario al modelo para obtener miDia personalizado
+            const lista = await Lista.obtenerConTareas(idLista, idUsuario);
 
             if (!lista) {
                 return res.status(404).json({
@@ -272,12 +277,19 @@ const listaController = {
                 });
             }
 
+            console.log('✅ Lista obtenida con tareas:', {
+                idLista: lista.idLista,
+                nombre: lista.nombre,
+                totalTareas: lista.tareas.length,
+                tareasConMiDia: lista.tareas.filter(t => t.miDia).length
+            });
+
             res.status(200).json({
                 success: true,
                 data: lista
             });
         } catch (error) {
-            console.error('Error en obtenerConTareas:', error);
+            console.error('❌ Error en obtenerConTareas:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al obtener la lista con tareas',

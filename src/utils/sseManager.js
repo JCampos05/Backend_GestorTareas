@@ -52,9 +52,9 @@ class SSEManager {
 
         const event = this.formatSSE(data);
         
-        // ✅ Si formatSSE devuelve vacío, no enviar
+        //  Si formatSSE devuelve vacío, no enviar
         if (!event) {
-            console.error('❌ Evento SSE vacío, no se envía');
+            console.error(' Evento SSE vacío, no se envía');
             return false;
         }
 
@@ -74,7 +74,7 @@ class SSEManager {
         // Limpiar conexiones muertas
         deadClients.forEach(client => this.removeClient(idUsuario, client));
 
-        // ✅ LOG DETALLADO DE ENVÍO SSE
+        // LOG DETALLADO DE ENVÍO SSE
         if (sentCount > 0) {
             console.log(`📡 ===== SSE ENVIADO =====`);
             console.log(`   👤 Usuario: ${idUsuario}`);
@@ -122,56 +122,56 @@ class SSEManager {
                     client.write(event);
                     totalClients++;
                 } catch (error) {
-                    console.error(`❌ Error en broadcast para usuario ${userId}:`, error.message);
+                    console.error(` Error en broadcast para usuario ${userId}:`, error.message);
                 }
             }
         }
 
-        console.log(`📢 Broadcast enviado a ${totalClients} clientes`);
+        console.log(` Broadcast enviado a ${totalClients} clientes`);
         return totalClients;
     }
 
     /**
      * Formatear datos al formato SSE
-     * ✅ MEJORADO: Validación exhaustiva
+     *  MEJORADO: Validación exhaustiva
      */
     formatSSE(data) {
         try {
-            // ✅ Validar que data existe
+            //  Validar que data existe
             if (!data) {
-                console.error('❌ formatSSE: data es undefined o null');
+                console.error(' formatSSE: data es undefined o null');
                 return '';
             }
 
-            // ✅ Validar que data es un objeto
+            //  Validar que data es un objeto
             if (typeof data !== 'object') {
                 console.error('❌ formatSSE: data no es un objeto:', typeof data);
                 return '';
             }
 
-            // ✅ Determinar el evento (por defecto 'nueva_notificacion')
+            //  Determinar el evento (por defecto 'nueva_notificacion')
             const event = data.event || 'nueva_notificacion';
 
-            // ✅ Determinar el ID
+            //  Determinar el ID
             const id = data.id || data.idNotificacion || Date.now();
 
-            // ✅ Remover campo 'event' del payload para evitar duplicación
+            //  Remover campo 'event' del payload para evitar duplicación
             const { event: _, ...cleanData } = data;
 
-            // ✅ Validar que cleanData tiene contenido
+            // Validar que cleanData tiene contenido
             if (!cleanData || Object.keys(cleanData).length === 0) {
                 console.error('❌ formatSSE: cleanData está vacío después de limpiar');
                 console.error('   Data original:', data);
                 return '';
             }
 
-            // ✅ CRÍTICO: Asegurar que idNotificacion existe en cleanData
+            // CRÍTICO: Asegurar que idNotificacion existe en cleanData
             if (!cleanData.idNotificacion && !cleanData.id) {
                 cleanData.idNotificacion = id;
                 cleanData.id = id;
             }
 
-            // ✅ Convertir a string JSON
+            //  Convertir a string JSON
             let payload;
             try {
                 payload = JSON.stringify(cleanData);
@@ -181,13 +181,13 @@ class SSEManager {
                 return '';
             }
 
-            // ✅ Validar que el payload no esté vacío
+            //  Validar que el payload no esté vacío
             if (!payload || payload === '{}') {
                 console.error('❌ formatSSE: payload vacío o inválido');
                 return '';
             }
 
-            // ✅ Formato SSE estándar
+            //  Formato SSE estándar
             const sseMessage = `id: ${id}\nevent: ${event}\ndata: ${payload}\n\n`;
 
             console.log(`📡 Formateando SSE:`);

@@ -343,6 +343,48 @@ CREATE TABLE  zonas_horarias (
   KEY idx_offset (offset_minutos)
 );
 
+CREATE TABLE tarea_mi_dia (
+  idTareaMiDia INT NOT NULL AUTO_INCREMENT,
+  idTarea INT NOT NULL,
+  idUsuario INT NOT NULL,
+  fechaAgregado TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  PRIMARY KEY (idTareaMiDia),
+  UNIQUE KEY uk_tarea_usuario (idTarea, idUsuario),
+  KEY idx_mi_dia_tarea (idTarea),
+  KEY idx_mi_dia_usuario (idUsuario),
+  
+  CONSTRAINT fk_mi_dia_tarea 
+    FOREIGN KEY (idTarea) 
+    REFERENCES tarea (idTarea) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+    
+  CONSTRAINT fk_mi_dia_usuario 
+    FOREIGN KEY (idUsuario) 
+    REFERENCES usuario (idUsuario) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE
+);
+
+-- ============================================
+-- VISTA: Tareas con información de Mi Día
+-- ============================================
+CREATE OR REPLACE VIEW v_tareas_con_mi_dia AS
+SELECT 
+  t.*,
+  l.nombre as nombreLista,
+  l.icono as iconoLista,
+  l.color as colorLista,
+  l.importante as importante,
+  ua.nombre as nombreUsuarioAsignado,
+  ua.email as emailUsuarioAsignado,
+  GROUP_CONCAT(DISTINCT tmd.idUsuario) as usuariosMiDia
+FROM tarea t
+LEFT JOIN lista l ON t.idLista = l.idLista
+LEFT JOIN usuario ua ON t.idUsuarioAsignado = ua.idUsuario
+LEFT JOIN tarea_mi_dia tmd ON t.idTarea = tmd.idTarea
+GROUP BY t.idTarea;
 
 -- ========== AMÉRICA ==========
 INSERT INTO zonas_horarias (zona, nombre, region, offset_actual, offset_minutos, usa_dst, orden) VALUES

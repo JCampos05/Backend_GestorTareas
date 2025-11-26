@@ -290,21 +290,34 @@ class Tarea {
     static async obtenerTodas(idUsuario) {
         try {
             const query = `
-                SELECT 
-                    t.*,
-                    l.nombre as nombreLista,
-                    l.icono as iconoLista,
-                    l.color as colorLista,
-                    l.importante as importante,
-                    u.nombre as nombreUsuarioAsignado,
-                    u.email as emailUsuarioAsignado
-                FROM tarea t
-                LEFT JOIN lista l ON t.idLista = l.idLista
-                LEFT JOIN usuario u ON t.idUsuarioAsignado = u.idUsuario
-                WHERE t.idUsuario = ?
-                ORDER BY t.fechaCreacion DESC
-            `;
-            const [rows] = await db.execute(query, [idUsuario]);
+            SELECT DISTINCT
+                t.*,
+                l.nombre as nombreLista,
+                l.icono as iconoLista,
+                l.color as colorLista,
+                l.importante as importante,
+                ua.nombre as nombreUsuarioAsignado,
+                ua.email as emailUsuarioAsignado,
+                EXISTS(
+                    SELECT 1 FROM tarea_mi_dia tmd 
+                    WHERE tmd.idTarea = t.idTarea 
+                      AND tmd.idUsuario = ?
+                ) as miDia
+            FROM tarea t
+            LEFT JOIN lista l ON t.idLista = l.idLista
+            LEFT JOIN usuario ua ON t.idUsuarioAsignado = ua.idUsuario
+            LEFT JOIN lista_compartida lc ON l.idLista = lc.idLista 
+                AND lc.idUsuario = ? 
+                AND lc.activo = 1 
+                AND lc.aceptado = 1
+            WHERE (
+                t.idUsuario = ?
+                OR t.idUsuarioAsignado = ?
+                OR (l.idLista IS NOT NULL AND lc.idUsuario IS NOT NULL)
+            )
+            ORDER BY t.fechaCreacion DESC
+        `;
+            const [rows] = await db.execute(query, [idUsuario, idUsuario, idUsuario, idUsuario]);
             return rows;
         } catch (error) {
             throw new Error(`Error al obtener tareas: ${error.message}`);
@@ -321,20 +334,25 @@ class Tarea {
             }
 
             const query = `
-                SELECT 
-                    t.*,
-                    l.nombre as nombreLista,
-                    l.icono as iconoLista,
-                    l.color as colorLista,
-                    l.importante as importante,
-                    u.nombre as nombreUsuarioAsignado,
-                    u.email as emailUsuarioAsignado
-                FROM tarea t
-                LEFT JOIN lista l ON t.idLista = l.idLista
-                LEFT JOIN usuario u ON t.idUsuarioAsignado = u.idUsuario
-                WHERE t.idTarea = ? 
-            `;
-            const [rows] = await db.execute(query, [id]);
+            SELECT 
+                t.*,
+                l.nombre as nombreLista,
+                l.icono as iconoLista,
+                l.color as colorLista,
+                l.importante as importante,
+                u.nombre as nombreUsuarioAsignado,
+                u.email as emailUsuarioAsignado,
+                EXISTS(
+                    SELECT 1 FROM tarea_mi_dia tmd 
+                    WHERE tmd.idTarea = t.idTarea 
+                      AND tmd.idUsuario = ?
+                ) as miDia
+            FROM tarea t
+            LEFT JOIN lista l ON t.idLista = l.idLista
+            LEFT JOIN usuario u ON t.idUsuarioAsignado = u.idUsuario
+            WHERE t.idTarea = ?
+        `;
+            const [rows] = await db.execute(query, [idUsuario, id]);
 
             if (rows.length === 0) {
                 return null;
@@ -604,18 +622,35 @@ class Tarea {
     static async obtenerPorEstado(estado, idUsuario) {
         try {
             const query = `
-                SELECT 
-                    t.*,
-                    l.nombre as nombreLista,
-                    l.icono as iconoLista,
-                    l.color as colorLista,
-                    l.importante as importante
-                FROM tarea t
-                LEFT JOIN lista l ON t.idLista = l.idLista
-                WHERE t.estado = ? AND t.idUsuario = ?
-                ORDER BY t.fechaCreacion DESC
-            `;
-            const [rows] = await db.execute(query, [estado, idUsuario]);
+            SELECT DISTINCT
+                t.*,
+                l.nombre as nombreLista,
+                l.icono as iconoLista,
+                l.color as colorLista,
+                l.importante as importante,
+                ua.nombre as nombreUsuarioAsignado,
+                ua.email as emailUsuarioAsignado,
+                EXISTS(
+                    SELECT 1 FROM tarea_mi_dia tmd 
+                    WHERE tmd.idTarea = t.idTarea 
+                      AND tmd.idUsuario = ?
+                ) as miDia
+            FROM tarea t
+            LEFT JOIN lista l ON t.idLista = l.idLista
+            LEFT JOIN usuario ua ON t.idUsuarioAsignado = ua.idUsuario
+            LEFT JOIN lista_compartida lc ON l.idLista = lc.idLista 
+                AND lc.idUsuario = ? 
+                AND lc.activo = 1 
+                AND lc.aceptado = 1
+            WHERE t.estado = ? 
+                AND (
+                    t.idUsuario = ?
+                    OR t.idUsuarioAsignado = ?
+                    OR (l.idLista IS NOT NULL AND lc.idUsuario IS NOT NULL)
+                )
+            ORDER BY t.fechaCreacion DESC
+        `;
+            const [rows] = await db.execute(query, [idUsuario, idUsuario, estado, idUsuario, idUsuario]);
             return rows;
         } catch (error) {
             throw new Error(`Error al obtener tareas por estado: ${error.message}`);
@@ -626,18 +661,35 @@ class Tarea {
     static async obtenerPorPrioridad(prioridad, idUsuario) {
         try {
             const query = `
-                SELECT 
-                    t.*,
-                    l.nombre as nombreLista,
-                    l.icono as iconoLista,
-                    l.color as colorLista,
-                    l.importante as importante
-                FROM tarea t
-                LEFT JOIN lista l ON t.idLista = l.idLista
-                WHERE t.prioridad = ? AND t.idUsuario = ?
-                ORDER BY t.fechaCreacion DESC
-            `;
-            const [rows] = await db.execute(query, [prioridad, idUsuario]);
+            SELECT DISTINCT
+                t.*,
+                l.nombre as nombreLista,
+                l.icono as iconoLista,
+                l.color as colorLista,
+                l.importante as importante,
+                ua.nombre as nombreUsuarioAsignado,
+                ua.email as emailUsuarioAsignado,
+                EXISTS(
+                    SELECT 1 FROM tarea_mi_dia tmd 
+                    WHERE tmd.idTarea = t.idTarea 
+                      AND tmd.idUsuario = ?
+                ) as miDia
+            FROM tarea t
+            LEFT JOIN lista l ON t.idLista = l.idLista
+            LEFT JOIN usuario ua ON t.idUsuarioAsignado = ua.idUsuario
+            LEFT JOIN lista_compartida lc ON l.idLista = lc.idLista 
+                AND lc.idUsuario = ? 
+                AND lc.activo = 1 
+                AND lc.aceptado = 1
+            WHERE t.prioridad = ? 
+                AND (
+                    t.idUsuario = ?
+                    OR t.idUsuarioAsignado = ?
+                    OR (l.idLista IS NOT NULL AND lc.idUsuario IS NOT NULL)
+                )
+            ORDER BY t.fechaCreacion DESC
+        `;
+            const [rows] = await db.execute(query, [idUsuario, idUsuario, prioridad, idUsuario, idUsuario]);
             return rows;
         } catch (error) {
             throw new Error(`Error al obtener tareas por prioridad: ${error.message}`);
@@ -648,42 +700,83 @@ class Tarea {
     static async obtenerVencidas(idUsuario) {
         try {
             const query = `
-                SELECT 
-                    t.*,
-                    l.nombre as nombreLista,
-                    l.icono as iconoLista,
-                    l.color as colorLista,
-                    l.importante as importante
-                FROM tarea t
-                LEFT JOIN lista l ON t.idLista = l.idLista
-                WHERE t.fechaVencimiento < CURDATE() 
+            SELECT DISTINCT
+                t.*,
+                l.nombre as nombreLista,
+                l.icono as iconoLista,
+                l.color as colorLista,
+                l.importante as importante,
+                ua.nombre as nombreUsuarioAsignado,
+                ua.email as emailUsuarioAsignado,
+                EXISTS(
+                    SELECT 1 FROM tarea_mi_dia tmd 
+                    WHERE tmd.idTarea = t.idTarea 
+                      AND tmd.idUsuario = ?
+                ) as miDia
+            FROM tarea t
+            LEFT JOIN lista l ON t.idLista = l.idLista
+            LEFT JOIN usuario ua ON t.idUsuarioAsignado = ua.idUsuario
+            LEFT JOIN lista_compartida lc ON l.idLista = lc.idLista 
+                AND lc.idUsuario = ? 
+                AND lc.activo = 1 
+                AND lc.aceptado = 1
+            WHERE t.fechaVencimiento < CURDATE() 
                 AND t.estado != 'C'
-                AND t.idUsuario = ?
-                ORDER BY t.fechaVencimiento ASC
-            `;
-            const [rows] = await db.execute(query, [idUsuario]);
+                AND (
+                    t.idUsuario = ?
+                    OR t.idUsuarioAsignado = ?
+                    OR (l.idLista IS NOT NULL AND lc.idUsuario IS NOT NULL)
+                )
+            ORDER BY t.fechaVencimiento ASC
+        `;
+            const [rows] = await db.execute(query, [idUsuario, idUsuario, idUsuario, idUsuario]);
             return rows;
         } catch (error) {
             throw new Error(`Error al obtener tareas vencidas: ${error.message}`);
         }
     }
-
     // Obtener tareas por lista CON información de la lista
     static async obtenerPorLista(idLista, idUsuario) {
         try {
             const query = `
-                SELECT 
-                    t.*,
-                    l.nombre as nombreLista,
-                    l.icono as iconoLista,
-                    l.color as colorLista,
-                    l.importante as importante
-                FROM tarea t
-                LEFT JOIN lista l ON t.idLista = l.idLista
-                WHERE t.idLista = ? AND t.idUsuario = ?
-                ORDER BY t.fechaCreacion DESC
-            `;
-            const [rows] = await db.execute(query, [idLista, idUsuario]);
+            SELECT DISTINCT
+                t.*,
+                l.nombre as nombreLista,
+                l.icono as iconoLista,
+                l.color as colorLista,
+                l.importante as importante,
+                ua.nombre as nombreUsuarioAsignado,
+                ua.email as emailUsuarioAsignado,
+                --  CRÍTICO: Forzar conversión explícita a INT para que Angular detecte el cambio
+                CAST(EXISTS(
+                    SELECT 1 FROM tarea_mi_dia tmd 
+                    WHERE tmd.idTarea = t.idTarea 
+                      AND tmd.idUsuario = ?
+                ) AS UNSIGNED) as miDia
+            FROM tarea t
+            LEFT JOIN lista l ON t.idLista = l.idLista
+            LEFT JOIN usuario ua ON t.idUsuarioAsignado = ua.idUsuario
+            LEFT JOIN lista_compartida lc ON l.idLista = lc.idLista 
+                AND lc.idUsuario = ? 
+                AND lc.activo = 1 
+                AND lc.aceptado = 1
+            WHERE t.idLista = ? 
+                AND (
+                    t.idUsuario = ?
+                    OR t.idUsuarioAsignado = ?
+                    OR (l.idLista IS NOT NULL AND lc.idUsuario IS NOT NULL)
+                )
+            ORDER BY t.fechaCreacion DESC
+        `;
+            const [rows] = await db.execute(query, [idUsuario, idUsuario, idLista, idUsuario, idUsuario]);
+
+            console.log('🔍 Tareas desde BD (obtenerPorLista):', rows.map(t => ({
+                id: t.idTarea,
+                nombre: t.nombre,
+                miDia: t.miDia,
+                tipo: typeof t.miDia
+            })));
+
             return rows;
         } catch (error) {
             throw new Error(`Error al obtener tareas por lista: ${error.message}`);
@@ -692,10 +785,67 @@ class Tarea {
 
     // Nuevo método para alternar Mi Día
     static async alternarMiDia(id, miDia, idUsuario) {
+        const connection = await db.getConnection();
+
         try {
-            return await this.actualizar(id, { miDia }, idUsuario);
+            await connection.beginTransaction();
+
+            // Verificar permisos
+            const { permiso } = await this.verificarPermisos(id, idUsuario, 'ver');
+
+            if (!permiso) {
+                await connection.rollback();
+                return null;
+            }
+
+            if (miDia) {
+                // ✅ Agregar a Mi Día (solo para este usuario)
+                await connection.execute(
+                    `INSERT INTO tarea_mi_dia (idTarea, idUsuario, fechaAgregado) 
+                 VALUES (?, ?, NOW())
+                 ON DUPLICATE KEY UPDATE fechaAgregado = NOW()`,
+                    [id, idUsuario]
+                );
+            } else {
+                // ✅ Quitar de Mi Día (solo para este usuario)
+                await connection.execute(
+                    'DELETE FROM tarea_mi_dia WHERE idTarea = ? AND idUsuario = ?',
+                    [id, idUsuario]
+                );
+            }
+
+            await connection.commit();
+
+            // ✅ Retornar tarea actualizada con estado de Mi Día para este usuario
+            const [tareaActualizada] = await connection.execute(
+                `SELECT 
+                t.*,
+                l.nombre as nombreLista,
+                l.icono as iconoLista,
+                l.color as colorLista,
+                l.importante as importante,
+                ua.nombre as nombreUsuarioAsignado,
+                ua.email as emailUsuarioAsignado,
+                EXISTS(
+                    SELECT 1 FROM tarea_mi_dia tmd 
+                    WHERE tmd.idTarea = t.idTarea 
+                      AND tmd.idUsuario = ?
+                ) as miDia
+             FROM tarea t
+             LEFT JOIN lista l ON t.idLista = l.idLista
+             LEFT JOIN usuario ua ON t.idUsuarioAsignado = ua.idUsuario
+             WHERE t.idTarea = ?`,
+                [idUsuario, id]
+            );
+
+            return tareaActualizada[0];
+
         } catch (error) {
-            throw new Error(`Error al alternar Mi Día: ${error.message}`);
+            await connection.rollback();
+            console.error('Error al alternar Mi Día:', error);
+            throw error;
+        } finally {
+            connection.release();
         }
     }
 
@@ -703,20 +853,33 @@ class Tarea {
     static async obtenerMiDia(idUsuario) {
         try {
             const query = `
-                SELECT 
-                    t.*,
-                    l.nombre as nombreLista,
-                    l.icono as iconoLista,
-                    l.color as colorLista,
-                    l.importante as importante
-                FROM tarea t
-                LEFT JOIN lista l ON t.idLista = l.idLista
-                WHERE t.miDia = TRUE 
+            SELECT DISTINCT
+                t.*,
+                l.nombre as nombreLista,
+                l.icono as iconoLista,
+                l.color as colorLista,
+                l.importante as importante,
+                ua.nombre as nombreUsuarioAsignado,
+                ua.email as emailUsuarioAsignado,
+                TRUE as miDia
+            FROM tarea t
+            INNER JOIN tarea_mi_dia tmd ON t.idTarea = tmd.idTarea
+            LEFT JOIN lista l ON t.idLista = l.idLista
+            LEFT JOIN usuario ua ON t.idUsuarioAsignado = ua.idUsuario
+            LEFT JOIN lista_compartida lc ON l.idLista = lc.idLista 
+                AND lc.idUsuario = ? 
+                AND lc.activo = 1 
+                AND lc.aceptado = 1
+            WHERE tmd.idUsuario = ?
                 AND t.estado != 'C'
-                AND t.idUsuario = ?
-                ORDER BY t.fechaCreacion DESC
-            `;
-            const [rows] = await db.execute(query, [idUsuario]);
+                AND (
+                    t.idUsuario = ?
+                    OR t.idUsuarioAsignado = ?
+                    OR (l.idLista IS NOT NULL AND lc.idUsuario IS NOT NULL)
+                )
+            ORDER BY t.fechaCreacion DESC
+        `;
+            const [rows] = await db.execute(query, [idUsuario, idUsuario, idUsuario, idUsuario]);
             return rows;
         } catch (error) {
             throw new Error(`Error al obtener tareas de Mi Día: ${error.message}`);
@@ -755,19 +918,24 @@ class Tarea {
                 return { success: false, message: 'No tienes acceso a esta lista' };
             }
 
-            // Obtener TODAS las tareas de la lista
+            // ✅ Obtener TODAS las tareas de la lista CON miDia personalizado
             const [tareas] = await db.execute(
                 `SELECT 
                 t.*,
                 u.nombre as nombreUsuarioAsignado,
                 u.email as emailUsuarioAsignado,
-                uc.nombre as nombreCreador
+                uc.nombre as nombreCreador,
+                EXISTS(
+                    SELECT 1 FROM tarea_mi_dia tmd 
+                    WHERE tmd.idTarea = t.idTarea 
+                      AND tmd.idUsuario = ?
+                ) as miDia
             FROM tarea t
             LEFT JOIN usuario u ON t.idUsuarioAsignado = u.idUsuario
             LEFT JOIN usuario uc ON t.idUsuario = uc.idUsuario
             WHERE t.idLista = ?
             ORDER BY t.fechaCreacion DESC`,
-                [idLista]
+                [idUsuarioSolicitante, idLista]
             );
 
             return { success: true, tareas };
@@ -776,6 +944,27 @@ class Tarea {
             console.error('Error al obtener todas las tareas de lista:', error);
             throw error;
         }
+    }
+
+    static agregarMiDiaAQuery(queryBase, idUsuario) {
+        return `
+        SELECT DISTINCT
+            t.*,
+            l.nombre as nombreLista,
+            l.icono as iconoLista,
+            l.color as colorLista,
+            l.importante as importante,
+            ua.nombre as nombreUsuarioAsignado,
+            ua.email as emailUsuarioAsignado,
+            EXISTS(
+                SELECT 1 FROM tarea_mi_dia tmd 
+                WHERE tmd.idTarea = t.idTarea 
+                  AND tmd.idUsuario = ?
+            ) as miDia
+        FROM (${queryBase}) t
+        LEFT JOIN lista l ON t.idLista = l.idLista
+        LEFT JOIN usuario ua ON t.idUsuarioAsignado = ua.idUsuario
+    `;
     }
 }
 

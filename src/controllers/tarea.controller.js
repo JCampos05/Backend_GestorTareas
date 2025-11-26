@@ -270,7 +270,7 @@ const tareaController = {
                         connection,
                         usuario.idUsuario,
                         'tarea_asignada',
-                        `📋 Nueva tarea en ${usuario.listaNombre}`,
+                        `Nueva tarea en ${usuario.listaNombre}`,
                         `Se creó: "${nombre.trim()}"`,
                         {
                             idLista: parseInt(idLista),
@@ -684,6 +684,19 @@ const tareaController = {
                 return tarea.idUsuarioAsignado === idUsuario;
             });
 
+            // ✅ CRÍTICO: Asegurar que miDia sea booleano ANTES de enviar
+            tareas = tareas.map(tarea => ({
+                ...tarea,
+                miDia: Boolean(tarea.miDia === 1 || tarea.miDia === true)
+            }));
+
+            console.log('📋 Tareas con miDia normalizado:', tareas.map(t => ({
+                id: t.idTarea,
+                nombre: t.nombre,
+                miDia: t.miDia,
+                tipo: typeof t.miDia
+            })));
+
             res.status(200).json({
                 success: true,
                 count: tareas.length,
@@ -706,6 +719,12 @@ const tareaController = {
             const { miDia } = req.body;
             const idUsuario = req.usuario.idUsuario;
 
+            console.log('🌞 alternarMiDia llamado:', {
+                idTarea: id,
+                miDia,
+                idUsuario
+            });
+
             if (miDia === undefined) {
                 return res.status(400).json({
                     success: false,
@@ -713,52 +732,39 @@ const tareaController = {
                 });
             }
 
-            const tareaActualizada = await Tarea.alternarMiDia(id, Boolean(miDia), idUsuario);
+            // ✅ Usar el método actualizado que maneja la tabla intermedia
+            const tareaActualizada = await Tarea.alternarMiDia(
+                id,
+                Boolean(miDia),
+                idUsuario
+            );
 
             if (!tareaActualizada) {
                 return res.status(404).json({
                     success: false,
-                    message: "Tarea no encontrada",
+                    message: "Tarea no encontrada o sin permisos",
                 });
             }
 
-            // ✅ NUEVO: Si la tarea pertenece a una lista compartida, notificar
-            if (tareaActualizada.idLista) {
-                const Lista = require("../models/lista");
-                const lista = await Lista.obtenerPorId(
-                    tareaActualizada.idLista,
-                    idUsuario
-                );
+            console.log('✅ Mi Día actualizado:', {
+                idTarea: tareaActualizada.idTarea,
+                miDia: tareaActualizada.miDia,
+                usuario: idUsuario
+            });
 
-                if (lista && lista.compartida) {
-                    // Obtener todos los colaboradores
-                    const ListaCompartida = require("../models/listaCompartida");
-                    const compartidos = await ListaCompartida.obtenerColaboradores(
-                        lista.idLista
-                    );
-
-                    // Emitir evento via socket.io si está configurado
-                    const io = req.app.get("io");
-                    if (io) {
-                        compartidos.forEach((colab) => {
-                            io.to(`user_${colab.idUsuario}`).emit("tarea_actualizada", {
-                                idTarea: tareaActualizada.idTarea,
-                                miDia: tareaActualizada.miDia,
-                                idLista: tareaActualizada.idLista,
-                                accion: "mi_dia_actualizado",
-                            });
-                        });
-                    }
-                }
-            }
+            // ✅ NO emitir evento a otros usuarios (cada uno tiene su propio Mi Día)
+            // Solo necesitamos confirmar al usuario actual
 
             res.status(200).json({
                 success: true,
-                message: "Mi Día actualizado exitosamente",
+                message: miDia
+                    ? "Tarea agregada a Mi Día"
+                    : "Tarea eliminada de Mi Día",
                 data: tareaActualizada,
             });
+
         } catch (error) {
-            console.error("Error en alternarMiDia:", error);
+            console.error("❌ Error en alternarMiDia:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al actualizar Mi Día",
@@ -766,7 +772,6 @@ const tareaController = {
             });
         }
     },
-
     // Obtener tareas de Mi Día
     obtenerMiDia: async (req, res) => {
         try {

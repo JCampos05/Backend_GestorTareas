@@ -209,42 +209,53 @@ class Lista {
     }
 
     // Obtener lista con sus tareas
-    // Obtener lista con sus tareas
     static async obtenerConTareas(id, idUsuario = null) {
         try {
             let query, params;
 
-            // ✅ Si viene idUsuario, verificar (para métodos sin middleware)
-            // ✅ Si NO viene, solo buscar por ID (para métodos CON middleware)
-            if (idUsuario !== null) {
-                query = `
-                SELECT l.*, c.nombre as nombreCategoria,
-                        t.idTarea, t.nombre as nombreTarea, t.descripcion, t.prioridad, 
-                        t.estado, t.fechaCreacion as fechaCreacionTarea, t.fechaVencimiento,
-                        t.idUsuarioAsignado, u.nombre as nombreUsuarioAsignado, u.email as emailUsuarioAsignado
-                FROM lista l
-                LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
-                LEFT JOIN tarea t ON l.idLista = t.idLista
-                LEFT JOIN usuario u ON t.idUsuarioAsignado = u.idUsuario
-                WHERE l.idLista = ? AND l.idUsuario = ?
-                ORDER BY t.fechaCreacion DESC
-            `;
-                params = [id, idUsuario];
-            } else {
-                query = `
-                SELECT l.*, c.nombre as nombreCategoria,
-                        t.idTarea, t.nombre as nombreTarea, t.descripcion, t.prioridad, 
-                        t.estado, t.fechaCreacion as fechaCreacionTarea, t.fechaVencimiento,
-                        t.idUsuarioAsignado, u.nombre as nombreUsuarioAsignado, u.email as emailUsuarioAsignado
-                FROM lista l
-                LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
-                LEFT JOIN tarea t ON l.idLista = t.idLista
-                LEFT JOIN usuario u ON t.idUsuarioAsignado = u.idUsuario
-                WHERE l.idLista = ?
-                ORDER BY t.fechaCreacion DESC
-            `;
-                params = [id];
-            }
+            // CRÍTICO: Necesitamos idUsuario para obtener miDia personalizado
+            // El controlador debe pasar req.usuario.idUsuario
+            const usuarioParaMiDia = idUsuario || 0; // Fallback si no viene
+
+            // Query actualizada con campo miDia
+            query = `
+            SELECT 
+                l.*, 
+                c.nombre as nombreCategoria,
+                t.idTarea, 
+                t.nombre as nombreTarea, 
+                t.descripcion, 
+                t.prioridad, 
+                t.estado, 
+                t.fechaCreacion as fechaCreacionTarea, 
+                t.fechaVencimiento,
+                t.miDia as miDiaLegacy,
+                t.repetir,
+                t.pasos,
+                t.notas,
+                t.recordatorio,
+                t.tipoRepeticion,
+                t.configRepeticion,
+                t.idUsuarioAsignado, 
+                u.nombre as nombreUsuarioAsignado, 
+                u.email as emailUsuarioAsignado,
+                -- ✅ Campo miDia personalizado por usuario
+                CAST(EXISTS(
+                    SELECT 1 FROM tarea_mi_dia tmd 
+                    WHERE tmd.idTarea = t.idTarea 
+                      AND tmd.idUsuario = ?
+                ) AS UNSIGNED) as miDia
+            FROM lista l
+            LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
+            LEFT JOIN tarea t ON l.idLista = t.idLista
+            LEFT JOIN usuario u ON t.idUsuarioAsignado = u.idUsuario
+            WHERE l.idLista = ?
+            ORDER BY t.fechaCreacion DESC
+        `;
+
+            params = [usuarioParaMiDia, id];
+
+            console.log('🔍 Query obtenerConTareas:', { idLista: id, idUsuario: usuarioParaMiDia });
 
             const [rows] = await db.execute(query, params);
 
@@ -260,13 +271,16 @@ class Lista {
                 idCategoria: rows[0].idCategoria,
                 nombreCategoria: rows[0].nombreCategoria,
                 fechaCreacion: rows[0].fechaCreacion,
-                importante: rows[0].importante,
+                importante: Boolean(rows[0].importante),
+                compartible: rows[0].compartible,
+                claveCompartir: rows[0].claveCompartir,
                 tareas: []
             };
 
+            // ✅ Mapear tareas con miDia normalizado
             rows.forEach(row => {
                 if (row.idTarea) {
-                    lista.tareas.push({
+                    const tarea = {
                         idTarea: row.idTarea,
                         nombre: row.nombreTarea,
                         descripcion: row.descripcion,
@@ -274,21 +288,44 @@ class Lista {
                         estado: row.estado,
                         fechaCreacion: row.fechaCreacionTarea,
                         fechaVencimiento: row.fechaVencimiento,
+                        miDia: Boolean(row.miDia === 1 || row.miDia === true), // ✅ Conversión explícita
+                        repetir: Boolean(row.repetir === 1 || row.repetir === true),
+                        pasos: row.pasos,
+                        notas: row.notas,
+                        recordatorio: row.recordatorio,
+                        tipoRepeticion: row.tipoRepeticion,
+                        configRepeticion: row.configRepeticion,
                         idUsuarioAsignado: row.idUsuarioAsignado,
                         nombreUsuarioAsignado: row.nombreUsuarioAsignado,
-                        emailUsuarioAsignado: row.emailUsuarioAsignado
+                        emailUsuarioAsignado: row.emailUsuarioAsignado,
+                        // Campos de lista
+                        nombreLista: lista.nombre,
+                        iconoLista: lista.icono,
+                        colorLista: lista.color,
+                        importante: lista.importante
+                    };
+
+                    console.log(`📋 Tarea ${tarea.idTarea} - miDia:`, {
+                        valorBD: row.miDia,
+                        valorNormalizado: tarea.miDia,
+                        tipo: typeof tarea.miDia
                     });
+
+                    lista.tareas.push(tarea);
                 }
             });
 
+            console.log(`✅ Lista cargada con ${lista.tareas.length} tareas. IDs:`,
+                lista.tareas.map(t => `${t.idTarea}(miDia:${t.miDia})`).join(', ')
+            );
+
             return lista;
         } catch (error) {
+            console.error('❌ Error en obtenerConTareas:', error);
             throw new Error(`Error al obtener lista con tareas: ${error.message}`);
         }
     }
-    // Obtener listas por categoría
-    // Obtener listas por categoría
-    // En lista.js - MODIFICAR obtenerPorCategoria()
+
 
     static async obtenerPorCategoria(idCategoria, idUsuario) {
         try {
