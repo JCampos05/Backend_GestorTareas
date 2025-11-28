@@ -873,13 +873,24 @@ class Tarea {
             WHERE tmd.idUsuario = ?
                 AND t.estado != 'C'
                 AND (
-                    t.idUsuario = ?
+                    -- ✅ FILTRO CRÍTICO: Solo tareas sin asignar O asignadas a este usuario
+                    t.idUsuarioAsignado IS NULL 
                     OR t.idUsuarioAsignado = ?
+                )
+                AND (
+                    -- Tareas propias
+                    t.idUsuario = ?
+                    -- O tareas de listas compartidas donde tengo acceso
                     OR (l.idLista IS NOT NULL AND lc.idUsuario IS NOT NULL)
                 )
             ORDER BY t.fechaCreacion DESC
         `;
+
+            // ✅ Ahora necesitamos 4 parámetros (idUsuario se usa 4 veces)
             const [rows] = await db.execute(query, [idUsuario, idUsuario, idUsuario, idUsuario]);
+
+            //console.log(`🌞 Mi Día para usuario ${idUsuario}: ${rows.length} tareas`);
+
             return rows;
         } catch (error) {
             throw new Error(`Error al obtener tareas de Mi Día: ${error.message}`);

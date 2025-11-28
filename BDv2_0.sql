@@ -5,6 +5,7 @@ USE tasker;
 CREATE TABLE usuario (
   idUsuario INT NOT NULL AUTO_INCREMENT,
   nombre VARCHAR(100) NOT NULL,
+  apellido VARCHAR(100) NULL,
   email VARCHAR(100) NOT NULL,
   emailVerificado BOOLEAN DEFAULT FALSE,
   bio TEXT NULL,

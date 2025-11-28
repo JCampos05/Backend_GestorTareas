@@ -9,11 +9,11 @@ const UsuarioController = {
         const connection = await db.getConnection();
 
         try {
-            const { nombre, email, password } = req.body;
+            const { nombre, apellido, email, password } = req.body;
 
             if (!nombre || !email || !password) {
                 return res.status(400).json({
-                    error: 'Todos los campos son obligatorios'
+                    error: 'Nombre, email y contraseña son obligatorios'
                 });
             }
 
@@ -28,7 +28,6 @@ const UsuarioController = {
             const usuarioExistente = await Usuario.buscarPorEmail(email);
 
             if (usuarioExistente) {
-                // Si existe pero no está verificado, permitir re-envío
                 if (!usuarioExistente.emailVerificado) {
                     return res.status(409).json({
                         error: 'Este email ya está registrado pero no verificado',
@@ -45,8 +44,7 @@ const UsuarioController = {
 
             await connection.beginTransaction();
 
-            // Crear usuario (emailVerificado = FALSE por defecto)
-            const idUsuario = await Usuario.crear(nombre, email, password);
+            const idUsuario = await Usuario.crear(nombre, apellido, email, password);
 
             // Generar código de verificación
             const verificacionService = require('../services/verificacion.service');
@@ -55,16 +53,13 @@ const UsuarioController = {
             const codigo = verificacionService.generarCodigo();
             const ipCliente = req.ip || req.connection.remoteAddress;
 
-            // Guardar código en BD
             await verificacionService.guardarCodigo(idUsuario, codigo, ipCliente);
 
-            // Enviar email con código
             try {
                 await emailService.enviarCodigoVerificacion(email, nombre, codigo);
                 console.log(`📧 Email de verificación enviado a: ${email}`);
             } catch (emailError) {
                 console.error('❌ Error al enviar email:', emailError);
-                // Rollback si falla el envío de email
                 await connection.rollback();
                 return res.status(500).json({
                     error: 'No se pudo enviar el email de verificación',
@@ -74,7 +69,6 @@ const UsuarioController = {
 
             await connection.commit();
 
-            // NO generar token aún - debe verificar primero
             res.status(201).json({
                 mensaje: 'Usuario registrado exitosamente. Revisa tu email para verificar tu cuenta.',
                 idUsuario: idUsuario,
@@ -162,12 +156,13 @@ const UsuarioController = {
 
     actualizarPerfil: async (req, res) => {
         try {
-            const { nombre, bio, telefono, ubicacion, cargo, redes_sociales } = req.body;
+            const { nombre, apellido, bio, telefono, ubicacion, cargo, redes_sociales } = req.body;
 
             const datosActualizar = {};
 
-            // AGREGAR ESTAS LÍNEAS para permitir actualizar el nombre
             if (nombre !== undefined) datosActualizar.nombre = nombre;
+
+            if (apellido !== undefined) datosActualizar.apellido = apellido;
 
             if (bio !== undefined) datosActualizar.bio = bio;
             if (telefono !== undefined) datosActualizar.telefono = telefono;

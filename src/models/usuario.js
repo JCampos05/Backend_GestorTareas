@@ -2,11 +2,11 @@ const db = require('../config/config');
 const bcrypt = require('bcrypt');
 
 const Usuario = {
-    crear: async (nombre, email, password) => {
+    crear: async (nombre, apellido, email, password) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const [result] = await db.query(
-            'INSERT INTO usuario (nombre, email, password) VALUES (?, ?, ?)',
-            [nombre, email, hashedPassword]
+            'INSERT INTO usuario (nombre, apellido, email, password) VALUES (?, ?, ?, ?)',
+            [nombre, apellido || null, email, hashedPassword]
         );
         return result.insertId;
     },
@@ -23,7 +23,8 @@ const Usuario = {
         const [rows] = await db.query(
             `SELECT 
                 idUsuario, 
-                nombre, 
+                nombre,
+                apellido,
                 email, 
                 emailVerificado,
                 bio,
@@ -52,16 +53,20 @@ const Usuario = {
     },
 
     actualizarPerfil: async (idUsuario, datos) => {
-        const { nombre, bio, telefono, ubicacion, cargo, redes_sociales } = datos;
+        const { nombre, apellido, bio, telefono, ubicacion, cargo, redes_sociales } = datos;
 
         // Construir query dinámicamente solo con campos proporcionados
         const campos = [];
         const valores = [];
 
-        // AGREGAR ESTAS LÍNEAS para permitir actualizar el nombre
         if (nombre !== undefined) {
             campos.push('nombre = ?');
             valores.push(nombre);
+        }
+        
+        if (apellido !== undefined) {
+            campos.push('apellido = ?');
+            valores.push(apellido);
         }
 
         if (bio !== undefined) {
@@ -97,10 +102,10 @@ const Usuario = {
         return result.affectedRows > 0;
     },
 
-    actualizarNombre: async (idUsuario, nombre) => {
+    actualizarNombre: async (idUsuario, nombre, apellido) => {
         const [result] = await db.query(
-            'UPDATE usuario SET nombre = ? WHERE idUsuario = ?',
-            [nombre, idUsuario]
+            'UPDATE usuario SET nombre = ?, apellido = ? WHERE idUsuario = ?',
+            [nombre, apellido || null, idUsuario]
         );
         return result.affectedRows > 0;
     },
