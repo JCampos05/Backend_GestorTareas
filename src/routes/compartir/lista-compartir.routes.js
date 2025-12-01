@@ -1,4 +1,3 @@
-// src/routes/compartir/lista.compartir.routes.js
 const express = require('express');
 const router = express.Router();
 const listaCompartirController = require('../../controllers/compartir/lista-compartir.controller');

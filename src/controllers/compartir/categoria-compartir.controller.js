@@ -1,4 +1,3 @@
-// src/controllers/compartir/categoria.compartir.controller.js
 const db = require('../../config/config');
 const {
     CategoriaCompartida,
@@ -16,9 +15,8 @@ const {
 
 const { Invitacion } = require('../../models/categoriaCompartida');
 
-/**
- * Generar clave para compartir categoría
- */
+
+//Generar clave para compartir categoría
 exports.generarClaveCategoria = async (req, res) => {
     const connection = await db.getConnection();
     try {
@@ -27,7 +25,7 @@ exports.generarClaveCategoria = async (req, res) => {
         const { idCategoria } = req.params;
         const idUsuario = req.usuario.idUsuario;
 
-        console.log('🔵 Compartiendo categoría ID:', idCategoria);
+        console.log('Compartiendo categoría ID:', idCategoria);
 
         // Verificar que la categoría existe y es del usuario
         const [catRows] = await connection.execute(
@@ -40,7 +38,7 @@ exports.generarClaveCategoria = async (req, res) => {
             return res.status(404).json({ error: 'Categoría no encontrada' });
         }
 
-        console.log('✅ Categoría encontrada:', catRows[0].nombre);
+        console.log('Categoría encontrada:', catRows[0].nombre);
 
         // Generar clave única para categoría
         let clave = generarClaveCompartir();
@@ -56,7 +54,7 @@ exports.generarClaveCategoria = async (req, res) => {
             intentos++;
         }
 
-        console.log('🔑 Clave de categoría generada:', clave);
+        //console.log('Clave de categoría generada:', clave);
 
         // Actualizar categoría
         await connection.execute(
@@ -66,20 +64,20 @@ exports.generarClaveCategoria = async (req, res) => {
             [clave, idCategoria]
         );
 
-        console.log('✅ Categoría actualizada como compartible');
+        console.log('Categoría actualizada como compartible');
 
-        // ✅ Obtener todas las listas de esta categoría
+        // Obtener todas las listas de esta categoría
         const [listas] = await connection.execute(
             'SELECT idLista, nombre FROM lista WHERE idCategoria = ?',
             [idCategoria]
         );
 
-        console.log(`📋 Listas encontradas en categoría ${idCategoria}: ${listas.length}`);
+        console.log(`Listas encontradas en categoría ${idCategoria}: ${listas.length}`);
 
-        // ✅ Hacer compartibles todas las listas de la categoría
+        // Hacer compartibles todas las listas de la categoría
         if (listas.length > 0) {
             for (const lista of listas) {
-                console.log(`🔄 Procesando lista: "${lista.nombre}" (ID: ${lista.idLista})`);
+                console.log(`Procesando lista: "${lista.nombre}" (ID: ${lista.idLista})`);
                 
                 // Generar clave única para cada lista
                 let claveLista = generarClaveCompartir();
@@ -95,9 +93,9 @@ exports.generarClaveCategoria = async (req, res) => {
                     intentosLista++;
                 }
 
-                console.log(`🔑 Clave generada para lista "${lista.nombre}": ${claveLista}`);
+                console.log(`Clave generada para lista "${lista.nombre}": ${claveLista}`);
 
-                // ✅ CRÍTICO: Actualizar AMBOS campos
+                // Actualizar ambos campos
                 const [updateResult] = await connection.execute(
                     `UPDATE lista 
                      SET claveCompartir = ?, compartible = 1
@@ -105,7 +103,7 @@ exports.generarClaveCategoria = async (req, res) => {
                     [claveLista, lista.idLista]
                 );
 
-                console.log(`📝 UPDATE ejecutado. Filas afectadas: ${updateResult.affectedRows}`);
+                //console.log(`UPDATE ejecutado. Filas afectadas: ${updateResult.affectedRows}`);
 
                 // Verificar que se aplicó correctamente
                 const [verificacion] = await connection.execute(
@@ -113,9 +111,9 @@ exports.generarClaveCategoria = async (req, res) => {
                     [lista.idLista]
                 );
                 
-                console.log(`🔍 Verificación lista "${lista.nombre}": compartible=${verificacion[0].compartible}, clave=${verificacion[0].claveCompartir}`);
+                console.log(`Verificación lista "${lista.nombre}": compartible=${verificacion[0].compartible}, clave=${verificacion[0].claveCompartir}`);
 
-                // ✅ Insertar al propietario en lista_compartida si no existe
+                // Insertar al propietario en lista_compartida si no existe
                 const [propietarioEnLista] = await connection.execute(
                     'SELECT * FROM lista_compartida WHERE idLista = ? AND idUsuario = ?',
                     [lista.idLista, idUsuario]
@@ -128,13 +126,13 @@ exports.generarClaveCategoria = async (req, res) => {
                          VALUES (?, ?, 'admin', 1, 1, 1, ?, CURRENT_TIMESTAMP)`,
                         [lista.idLista, idUsuario, idUsuario]
                     );
-                    console.log(`✅ Propietario agregado a lista_compartida para lista "${lista.nombre}"`);
+                    console.log(`Propietario agregado a lista_compartida para lista "${lista.nombre}"`);
                 } else {
-                    console.log(`ℹ️ Propietario ya existe en lista_compartida para lista "${lista.nombre}"`);
+                    console.log(`Propietario ya existe en lista_compartida para lista "${lista.nombre}"`);
                 }
             }
         } else {
-            console.log('⚠️ No hay listas en esta categoría');
+            console.log('No hay listas en esta categoría');
         }
 
         // Registrar en auditoría
@@ -154,13 +152,13 @@ exports.generarClaveCategoria = async (req, res) => {
                     })
                 ]
             );
-            console.log('✅ Auditoría registrada');
+            console.log('Auditoría registrada');
         } catch (auditoriaError) {
-            console.warn('⚠️ Error al registrar auditoría:', auditoriaError.message);
+            console.warn('Error al registrar auditoría:', auditoriaError.message);
         }
 
         await connection.commit();
-        console.log('✅ Transacción completada exitosamente');
+        console.log('Transacción completada exitosamente');
 
         res.json({
             mensaje: 'Categoría compartida exitosamente',
@@ -174,16 +172,15 @@ exports.generarClaveCategoria = async (req, res) => {
         });
     } catch (error) {
         await connection.rollback();
-        console.error('❌ Error al generar clave:', error);
+        console.error('Error al generar clave:', error);
         console.error('Stack:', error.stack);
         res.status(500).json({ error: 'Error al generar clave de compartir' });
     } finally {
         connection.release();
     }
 };
-/**
- * Unirse a categoría mediante clave
- */
+
+//Unirse a categoría mediante clave
 exports.unirseCategoriaPorClave = async (req, res) => {
     try {
         const { clave } = req.body;
@@ -259,9 +256,8 @@ exports.unirseCategoriaPorClave = async (req, res) => {
     }
 };
 
-/**
- * Invitar usuario por email a categoría
- */
+
+//Invitar usuario por email a categoría
 exports.invitarUsuarioCategoria = async (req, res) => {
     try {
         const { idCategoria } = req.params;
@@ -380,9 +376,8 @@ exports.invitarUsuarioCategoria = async (req, res) => {
     }
 };
 
-/**
- * Listar usuarios con acceso a la categoría
- */
+
+//Listar usuarios con acceso a la categoría
 exports.listarUsuariosCategoria = async (req, res) => {
     try {
         const { idCategoria } = req.params;
@@ -405,9 +400,8 @@ exports.listarUsuariosCategoria = async (req, res) => {
     }
 };
 
-/**
- * Modificar rol de usuario en categoría
- */
+
+//Modificar rol de usuario en categoría
 exports.modificarRolCategoria = async (req, res) => {
     try {
         const { idCategoria, idUsuarioModificar } = req.params;
@@ -451,9 +445,8 @@ exports.modificarRolCategoria = async (req, res) => {
     }
 };
 
-/**
- * Revocar acceso a categoría
- */
+
+//Revocar acceso a categoría
 exports.revocarAccesoCategoria = async (req, res) => {
     try {
         const { idCategoria, idUsuarioRevocar } = req.params;
@@ -482,9 +475,8 @@ exports.revocarAccesoCategoria = async (req, res) => {
     }
 };
 
-/**
- * Salir de una categoría compartida
- */
+
+//Salir de una categoría compartida
 exports.salirDeCategoria = async (req, res) => {
     try {
         const { idCategoria } = req.params;
@@ -519,9 +511,8 @@ exports.salirDeCategoria = async (req, res) => {
     }
 };
 
-/**
- * Descompartir categoría (revocar todos los accesos)
- */
+
+//Descompartir categoría (revocar todos los accesos)
 exports.descompartirCategoria = async (req, res) => {
     const connection = await db.getConnection();
     try {
@@ -543,15 +534,15 @@ exports.descompartirCategoria = async (req, res) => {
             });
         }
 
-        // ✅ NUEVO: Obtener todas las listas de esta categoría
+        // Obtener todas las listas de esta categoría
         const [listas] = await connection.execute(
             'SELECT idLista FROM lista WHERE idCategoria = ?',
             [idCategoria]
         );
 
-        console.log(`📋 Listas encontradas en categoría ${idCategoria}: ${listas.length}`);
+        console.log(`Listas encontradas en categoría ${idCategoria}: ${listas.length}`);
 
-        // ✅ NUEVO: Hacer compartibles todas las listas de la categoría
+        // Hacer compartibles todas las listas de la categoría
         if (listas.length > 0) {
             for (const lista of listas) {
                 // Generar clave única para cada lista
@@ -568,7 +559,7 @@ exports.descompartirCategoria = async (req, res) => {
                     intentosLista++;
                 }
 
-                // ✅ CAMBIO CRÍTICO: Actualizar TANTO claveCompartir COMO compartible
+                // Actualizar tanto claveCompartir como compartible
                 await connection.execute(
                     `UPDATE lista 
                     SET claveCompartir = ?, compartible = TRUE 
@@ -576,7 +567,7 @@ exports.descompartirCategoria = async (req, res) => {
                     [claveLista, lista.idLista]
                 );
 
-                console.log(`✅ Lista ${lista.idLista} marcada como compartible con clave ${claveLista}`);
+                console.log(`Lista ${lista.idLista} marcada como compartible con clave ${claveLista}`);
             }
         }
 
@@ -618,9 +609,8 @@ exports.descompartirCategoria = async (req, res) => {
     }
 };
 
-/**
- * Obtener todas las categorías compartidas del usuario
- */
+
+//Obtener todas las categorías compartidas del usuario
 exports.obtenerCategoriasCompartidas = async (req, res) => {
     try {
         const idUsuario = req.usuario.idUsuario;
@@ -667,9 +657,8 @@ exports.obtenerCategoriasCompartidas = async (req, res) => {
     }
 };
 
-/**
- * Información de compartidos de una categoría
- */
+
+//Información de compartidos de una categoría
 exports.infoCompartidosCategoria = async (req, res) => {
     try {
         const { idCategoria } = req.params;

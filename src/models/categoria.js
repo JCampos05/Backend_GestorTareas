@@ -1,4 +1,3 @@
-// src/models/categoria.js (ACTUALIZADO)
 const db = require('../config/config');
 
 class Categoria {
@@ -20,7 +19,7 @@ class Categoria {
             const [result] = await db.execute(query, [nombre, idUsuario]);
             const idCategoria = result.insertId;
 
-            // IMPORTANTE: Crear registro en categoria_compartida para el creador como admin
+            //Crear registro en categoria_compartida para el creador como admin
             const queryCompartido = `
                 INSERT INTO categoria_compartida 
                 (idCategoria, idUsuario, rol, esCreador, compartidoPor, aceptado, activo) 
@@ -194,10 +193,10 @@ class Categoria {
                         nombre: row.nombreLista,
                         color: row.color,
                         icono: row.icono,
-                        importante: row.importante,  // ✅ AGREGADO
-                        compartible: row.compartible, // ✅ AGREGADO
-                        claveCompartir: row.claveCompartir, // ✅ AGREGADO
-                        idUsuario: row.idUsuarioLista, // ✅ AGREGADO
+                        importante: row.importante, 
+                        compartible: row.compartible, 
+                        claveCompartir: row.claveCompartir, 
+                        idUsuario: row.idUsuarioLista, 
                         fechaCreacion: row.fechaCreacionLista
                     });
                 }
@@ -208,7 +207,6 @@ class Categoria {
             throw new Error(`Error al obtener categoría con listas: ${error.message}`);
         }
     }
-    // NUEVOS MÉTODOS PARA COMPARTIDOS
 
     // Verificar si usuario tiene permiso específico
     static async verificarPermiso(idCategoria, idUsuario, accion) {

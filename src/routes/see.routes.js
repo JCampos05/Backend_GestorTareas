@@ -1,4 +1,3 @@
-// src/routes/sse.routes.js
 const express = require('express');
 const router = express.Router();
 const sseController = require('../controllers/sse.controller');
@@ -9,11 +8,11 @@ const SECRET_KEY = process.env.JWT_SECRET || 'tu_clave_secreta_aqui';
 // Middleware de autenticación para SSE (soporta token en query)
 const authSSE = (req, res, next) => {
     try {
-        // ✅ Obtener token de query param (EventSource no puede enviar headers)
+        // Obtener token de query param (EventSource no puede enviar headers)
         const token = req.query.token;
 
         if (!token) {
-            console.error('❌ SSE Auth: No se proporcionó token');
+            console.error('SSE Auth: No se proporcionó token');
             return res.status(401).json({ error: 'No se proporcionó token' });
         }
 
@@ -26,10 +25,10 @@ const authSSE = (req, res, next) => {
             nombre: decoded.nombre
         };
 
-        console.log('✅ SSE Auth: Usuario autenticado:', req.usuario.email);
+        console.log('SSE Auth: Usuario autenticado:', req.usuario.email);
         next();
     } catch (error) {
-        console.error('❌ SSE Auth error:', error.message);
+        console.error('SSE Auth error:', error.message);
         return res.status(401).json({ error: 'Token inválido: ' + error.message });
     }
 };

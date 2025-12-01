@@ -57,9 +57,9 @@ const UsuarioController = {
 
             try {
                 await emailService.enviarCodigoVerificacion(email, nombre, codigo);
-                console.log(`📧 Email de verificación enviado a: ${email}`);
+                //console.log(`Email de verificación enviado a: ${email}`);
             } catch (emailError) {
-                console.error('❌ Error al enviar email:', emailError);
+                //console.error('Error al enviar email:', emailError);
                 await connection.rollback();
                 return res.status(500).json({
                     error: 'No se pudo enviar el email de verificación',
@@ -79,7 +79,7 @@ const UsuarioController = {
 
         } catch (error) {
             await connection.rollback();
-            console.error('❌ Error en registro:', error);
+            //console.error('Error en registro:', error);
             res.status(500).json({
                 error: 'Error al registrar usuario',
                 detalles: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -109,7 +109,6 @@ const UsuarioController = {
                 return res.status(401).json({ error: 'Credenciales inválidas' });
             }
 
-            // ✅ PERMITIR LOGIN AUNQUE NO ESTÉ VERIFICADO
             // Solo informar al frontend del estado de verificación
             const token = jwt.sign(
                 {
@@ -127,12 +126,12 @@ const UsuarioController = {
                 mensaje: 'Login exitoso',
                 token,
                 usuario: usuario,
-                // ⚠️ Informar al frontend si necesita verificar
+                // Informar al frontend si necesita verificar
                 requiereVerificacion: !usuario.emailVerificado
             });
 
         } catch (error) {
-            console.error('Error al hacer login:', error);
+            //console.error('Error al hacer login:', error);
             res.status(500).json({ error: 'Error al hacer login' });
         }
     },
@@ -149,7 +148,7 @@ const UsuarioController = {
 
             res.json(usuario);
         } catch (error) {
-            console.error('Error al obtener perfil:', error);
+            //console.error('Error al obtener perfil:', error);
             res.status(500).json({ error: 'Error al obtener perfil' });
         }
     },
@@ -194,7 +193,7 @@ const UsuarioController = {
                 usuario: usuarioActualizado
             });
         } catch (error) {
-            console.error('Error al actualizar perfil:', error);
+            //console.error('Error al actualizar perfil:', error);
             res.status(500).json({
                 error: 'Error al actualizar perfil',
                 detalle: error.message
@@ -221,7 +220,7 @@ const UsuarioController = {
 
             res.json({ mensaje: 'Nombre actualizado exitosamente' });
         } catch (error) {
-            console.error('Error al actualizar nombre:', error);
+            //console.error('Error al actualizar nombre:', error);
             res.status(500).json({ error: 'Error al actualizar nombre' });
         }
     },
@@ -254,7 +253,7 @@ const UsuarioController = {
 
             res.json({ mensaje: 'Password actualizado exitosamente' });
         } catch (error) {
-            console.error('Error al cambiar password:', error);
+            //console.error('Error al cambiar password:', error);
 
             if (error.message === 'Password actual incorrecto') {
                 return res.status(400).json({ error: error.message });
@@ -270,7 +269,7 @@ const UsuarioController = {
             const [rows] = await db.query('SELECT COUNT(*) as total FROM usuario');
             res.json({ existenUsuarios: rows[0].total > 0 });
         } catch (error) {
-            console.error('Error al verificar usuarios:', error);
+            //console.error('Error al verificar usuarios:', error);
             res.status(500).json({ error: 'Error al verificar usuarios' });
         }
     },
@@ -303,7 +302,7 @@ const UsuarioController = {
             if (!resultado.success) {
                 // Determinar código de estado según el error
                 let statusCode = 400;
-                if (resultado.error === 'EXPIRADO') statusCode = 410; // Gone
+                if (resultado.error === 'EXPIRADO') statusCode = 410; 
                 if (resultado.error === 'NO_CODIGO') statusCode = 404;
 
                 return res.status(statusCode).json({
@@ -313,7 +312,7 @@ const UsuarioController = {
                 });
             }
 
-            // ✅ Verificación exitosa - obtener datos del usuario
+            // Verificación exitosa - obtener datos del usuario
             const Usuario = require('../models/usuario');
             const usuario = await Usuario.buscarPorId(idUsuario);
 
@@ -337,7 +336,7 @@ const UsuarioController = {
             emailService.enviarBienvenida(usuario.email, usuario.nombre)
                 .catch(err => console.error('Error al enviar email de bienvenida:', err));
 
-            console.log(`✅ Usuario ${idUsuario} verificado y autenticado`);
+            //console.log(`Usuario ${idUsuario} verificado y autenticado`);
 
             // Eliminar password
             delete usuario.password;
@@ -352,7 +351,7 @@ const UsuarioController = {
             });
 
         } catch (error) {
-            console.error('❌ Error al verificar email:', error);
+            //console.error('Error al verificar email:', error);
             res.status(500).json({
                 error: 'Error al verificar el código',
                 detalles: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -365,7 +364,7 @@ const UsuarioController = {
     // ============================================
     reenviarCodigo: async (req, res) => {
         try {
-            // 🔥 Obtener idUsuario del token O del body
+            // Obtener idUsuario del token O del body
             let idUsuario = req.body.idUsuario;
 
             // Si viene autenticado por token, usar ese ID
@@ -389,13 +388,6 @@ const UsuarioController = {
             if (!usuario) {
                 return res.status(404).json({ error: 'Usuario no encontrado' });
             }
-
-            // ✅ IMPORTANTE: NO verificar si ya está verificado para cambio de contraseña
-            // if (usuario.emailVerificado) {
-            //     return res.status(400).json({
-            //         error: 'Este email ya está verificado'
-            //     });
-            // }
 
             // Verificar cooldown
             const cooldownCheck = await verificacionService.puedeReenviarCodigo(idUsuario);
@@ -422,14 +414,13 @@ const UsuarioController = {
 
             await verificacionService.guardarCodigo(idUsuario, codigo, ipCliente);
 
-            // 🔥 USAR EL SERVICIO CORRECTO PARA CAMBIO DE CONTRASEÑA
             await emailService.enviarCodigoCambioPassword(
                 usuario.email,
                 usuario.nombre,
                 codigo
             );
 
-            console.log(`📧 Código para cambio de contraseña enviado a usuario ${idUsuario}`);
+            //console.log(`Código para cambio de contraseña enviado a usuario ${idUsuario}`);
 
             res.json({
                 mensaje: 'Código enviado exitosamente',
@@ -438,7 +429,7 @@ const UsuarioController = {
             });
 
         } catch (error) {
-            console.error('❌ Error al reenviar código:', error);
+            //console.error('Error al reenviar código:', error);
             res.status(500).json({
                 error: 'Error al reenviar código',
                 detalles: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -474,7 +465,7 @@ const UsuarioController = {
             });
 
         } catch (error) {
-            console.error('❌ Error al enviar email de prueba:', error);
+            //console.error('Error al enviar email de prueba:', error);
             res.status(500).json({
                 error: 'Error al enviar email',
                 detalles: error.message
@@ -521,7 +512,7 @@ const UsuarioController = {
             });
 
         } catch (error) {
-            console.error('❌ Error al validar password:', error);
+            //console.error('Error al validar password:', error);
             res.status(500).json({
                 error: 'ERROR_VALIDACION',
                 mensaje: 'Error al validar contraseña'
@@ -576,7 +567,7 @@ const UsuarioController = {
                 codigo
             );
 
-            console.log(`📧 Código para cambio de contraseña enviado a usuario ${idUsuario}`);
+            //console.log(`Código para cambio de contraseña enviado a usuario ${idUsuario}`);
 
             res.json({
                 mensaje: 'Código enviado exitosamente',
@@ -584,7 +575,7 @@ const UsuarioController = {
             });
 
         } catch (error) {
-            console.error('❌ Error al solicitar código:', error);
+            //console.error('Error al solicitar código:', error);
             res.status(500).json({
                 error: 'Error al solicitar código',
                 detalles: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -606,21 +597,17 @@ const UsuarioController = {
                 return res.status(404).json({ error: 'Usuario no encontrado' });
             }
 
-            // ✅ No enviar datos sensibles
+            // No enviar datos sensibles
             delete usuario.password;
 
             res.json(usuario);
         } catch (error) {
-            console.error('Error al obtener perfil público:', error);
+            //console.error('Error al obtener perfil público:', error);
             res.status(500).json({ error: 'Error al obtener perfil' });
         }
     },
-    // ============================================
-    // SOLICITAR RECUPERACIÓN DE CONTRASEÑA (NUEVO)
-    // ============================================
-    // ============================================
-    // SOLICITAR RECUPERACIÓN DE CONTRASEÑA (CORREGIDO)
-    // ============================================
+
+    // SOLICITAR RECUPERACIÓN DE CONTRASEÑA 
     solicitarRecuperacionPassword: async (req, res) => {
         try {
             const { email } = req.body;
@@ -672,14 +659,13 @@ const UsuarioController = {
 
             await verificacionService.guardarCodigo(usuario.idUsuario, codigo, ipCliente);
 
-            // 🔥 CAMBIO AQUÍ: Usar el nuevo método
             await emailService.enviarCodigoRecuperacionPassword(
                 usuario.email,
                 usuario.nombre,
                 codigo
             );
 
-            console.log(`📧 Código de recuperación enviado a: ${email}`);
+            //console.log(`Código de recuperación enviado a: ${email}`);
 
             res.json({
                 mensaje: 'Código de recuperación enviado exitosamente',
@@ -689,7 +675,7 @@ const UsuarioController = {
             });
 
         } catch (error) {
-            console.error('❌ Error al solicitar recuperación:', error);
+            //console.error('Error al solicitar recuperación:', error);
             res.status(500).json({
                 error: 'ERROR_SERVIDOR',
                 mensaje: 'Error al procesar la solicitud'
@@ -697,9 +683,6 @@ const UsuarioController = {
         }
     },
 
-    // ============================================
-    // VERIFICAR CÓDIGO DE RECUPERACIÓN (NUEVO)
-    // ============================================
     verificarCodigoRecuperacion: async (req, res) => {
         try {
             const { email, codigo } = req.body;
@@ -746,7 +729,7 @@ const UsuarioController = {
                 });
             }
 
-            // ✅ Código válido - generar token temporal para cambio de contraseña
+            // Código válido - generar token temporal para cambio de contraseña
             const jwt = require('jsonwebtoken');
             const SECRET_KEY = process.env.JWT_SECRET || 'tu_clave_secreta_aqui';
 
@@ -760,7 +743,7 @@ const UsuarioController = {
                 { expiresIn: '15m' } // Solo 15 minutos para cambiar la contraseña
             );
 
-            console.log(`✅ Código de recuperación verificado para usuario ${usuario.idUsuario}`);
+            //console.log(`Código de recuperación verificado para usuario ${usuario.idUsuario}`);
 
             res.json({
                 mensaje: 'Código verificado correctamente',
@@ -769,7 +752,7 @@ const UsuarioController = {
             });
 
         } catch (error) {
-            console.error('❌ Error al verificar código de recuperación:', error);
+           //console.error('Error al verificar código de recuperación:', error);
             res.status(500).json({
                 error: 'ERROR_SERVIDOR',
                 mensaje: 'Error al verificar el código'
@@ -777,9 +760,6 @@ const UsuarioController = {
         }
     },
 
-    // ============================================
-    // ESTABLECER NUEVA CONTRASEÑA (NUEVO)
-    // ============================================
     establecerNuevaPassword: async (req, res) => {
         try {
             const { tokenTemporal, nuevaPassword } = req.body;
@@ -838,7 +818,7 @@ const UsuarioController = {
                 });
             }
 
-            console.log(`✅ Contraseña actualizada para usuario ${decoded.idUsuario}`);
+            //console.log(`Contraseña actualizada para usuario ${decoded.idUsuario}`);
 
             // Generar nuevo token de sesión normal
             const tokenSesion = jwt.sign(
@@ -856,7 +836,7 @@ const UsuarioController = {
             });
 
         } catch (error) {
-            console.error('❌ Error al establecer nueva contraseña:', error);
+            //console.error('Error al establecer nueva contraseña:', error);
             res.status(500).json({
                 error: 'ERROR_SERVIDOR',
                 mensaje: 'Error al actualizar la contraseña'

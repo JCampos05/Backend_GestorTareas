@@ -5,11 +5,9 @@ const ChatHandler = require('./handlers/chat.handler');
 
 let io;
 
-/**
- * Inicializar Socket.IO
- */
+//Inicializar Socket.IO
 const initializeSocket = (server) => {
-  console.log('🚀 Inicializando Socket.IO...');
+  console.log(' Inicializando Socket.IO...');
 
   io = socketIo(server, {
     cors: {
@@ -31,7 +29,7 @@ const initializeSocket = (server) => {
 
   // Manejar conexiones
   chatNamespace.on('connection', (socket) => {
-    console.log(`\n🟢 Nueva conexión de socket`);
+    console.log(`\nNueva conexión de socket`);
     console.log(`   Usuario: ${socket.userEmail} (ID: ${socket.userId})`);
     console.log(`   Socket ID: ${socket.id}\n`);
 
@@ -40,23 +38,21 @@ const initializeSocket = (server) => {
 
     // Evento de error genérico
     socket.on('error', (error) => {
-      console.error('❌ Error en socket:', error);
+      console.error('Error en socket:', error);
     });
   });
 
   // Manejar errores de conexión
   chatNamespace.on('connect_error', (error) => {
-    console.error('❌ Error de conexión:', error);
+    console.error('Error de conexión:', error);
   });
 
-  console.log('✅ Socket.IO inicializado correctamente\n');
+  console.log('Socket.IO inicializado correctamente\n');
 
   return io;
 };
 
-/**
- * Obtener instancia de IO
- */
+//Obtener instancia de IO
 const getIO = () => {
   if (!io) {
     throw new Error('Socket.IO no ha sido inicializado');
@@ -64,9 +60,7 @@ const getIO = () => {
   return io;
 };
 
-/**
- * Emitir evento a una lista específica
- */
+//Emitir evento a una lista específica
 const emitToList = (idLista, event, data) => {
   if (!io) {
     console.warn('Socket.IO no inicializado, no se puede emitir evento');
@@ -77,9 +71,7 @@ const emitToList = (idLista, event, data) => {
   io.of('/chat').to(roomName).emit(event, data);
 };
 
-/**
- * Emitir evento a un usuario específico
- */
+//Emitir evento a un usuario específico
 const emitToUser = (idUsuario, event, data) => {
   if (!io) {
     console.warn('Socket.IO no inicializado, no se puede emitir evento');

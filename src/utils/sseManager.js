@@ -8,7 +8,7 @@ class SSEManager {
             this.sendHeartbeat();
         }, 30000);
 
-        console.log('📡 SSE Manager inicializado');
+        console.log('SSE Manager inicializado');
     }
 
     /**
@@ -20,7 +20,7 @@ class SSEManager {
         }
 
         this.clients.get(idUsuario).add(response);
-        console.log(`✅ Cliente agregado - Usuario ${idUsuario} (Total: ${this.clients.get(idUsuario).size} conexiones)`);
+        console.log(`Cliente agregado - Usuario ${idUsuario} (Total: ${this.clients.get(idUsuario).size} conexiones)`);
     }
 
     /**
@@ -35,7 +35,7 @@ class SSEManager {
                 this.clients.delete(idUsuario);
             }
 
-            console.log(`❌ Cliente removido - Usuario ${idUsuario} (Restantes: ${userClients.size})`);
+            console.log(`Cliente removido - Usuario ${idUsuario} (Restantes: ${userClients.size})`);
         }
     }
 
@@ -46,7 +46,7 @@ class SSEManager {
         const userClients = this.clients.get(idUsuario);
 
         if (!userClients || userClients.size === 0) {
-            console.log(`⚠️ No hay clientes SSE conectados para usuario ${idUsuario}`);
+            console.log(`No hay clientes SSE conectados para usuario ${idUsuario}`);
             return false;
         }
 
@@ -66,7 +66,7 @@ class SSEManager {
                 client.write(event);
                 sentCount++;
             } catch (error) {
-                console.error(`❌ Error al enviar a cliente de usuario ${idUsuario}:`, error.message);
+                console.error(`Error al enviar a cliente de usuario ${idUsuario}:`, error.message);
                 deadClients.push(client);
             }
         }
@@ -110,7 +110,7 @@ class SSEManager {
         const event = this.formatSSE(data);
         
         if (!event) {
-            console.error('❌ Evento SSE vacío, no se hace broadcast');
+            console.error('Evento SSE vacío, no se hace broadcast');
             return 0;
         }
 
@@ -145,7 +145,7 @@ class SSEManager {
 
             //  Validar que data es un objeto
             if (typeof data !== 'object') {
-                console.error('❌ formatSSE: data no es un objeto:', typeof data);
+                console.error('formatSSE: data no es un objeto:', typeof data);
                 return '';
             }
 
@@ -160,7 +160,7 @@ class SSEManager {
 
             // Validar que cleanData tiene contenido
             if (!cleanData || Object.keys(cleanData).length === 0) {
-                console.error('❌ formatSSE: cleanData está vacío después de limpiar');
+                console.error('formatSSE: cleanData está vacío después de limpiar');
                 console.error('   Data original:', data);
                 return '';
             }
@@ -176,21 +176,21 @@ class SSEManager {
             try {
                 payload = JSON.stringify(cleanData);
             } catch (jsonError) {
-                console.error('❌ formatSSE: Error al convertir a JSON:', jsonError.message);
+                console.error('formatSSE: Error al convertir a JSON:', jsonError.message);
                 console.error('   cleanData:', cleanData);
                 return '';
             }
 
             //  Validar que el payload no esté vacío
             if (!payload || payload === '{}') {
-                console.error('❌ formatSSE: payload vacío o inválido');
+                console.error('formatSSE: payload vacío o inválido');
                 return '';
             }
 
             //  Formato SSE estándar
             const sseMessage = `id: ${id}\nevent: ${event}\ndata: ${payload}\n\n`;
 
-            console.log(`📡 Formateando SSE:`);
+            console.log(`Formateando SSE:`);
             console.log(`   Evento: ${event}`);
             console.log(`   ID: ${id}`);
             console.log(`   Payload size: ${payload.length} chars`);
@@ -200,7 +200,7 @@ class SSEManager {
             return sseMessage;
 
         } catch (error) {
-            console.error('❌ formatSSE: Error inesperado:', error.message);
+            console.error('formatSSE: Error inesperado:', error.message);
             console.error('Stack:', error.stack);
             return '';
         }

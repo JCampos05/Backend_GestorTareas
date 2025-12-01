@@ -1,9 +1,6 @@
 const pool = require('../config/config');
 
-/**
- * Middleware: Verificar que el email del usuario esté verificado
- * Usar en rutas que requieran verificación de email
- */
+//Middleware: Verificar que el email del usuario esté verificado
 const requerirEmailVerificado = async (req, res, next) => {
     try {
         const idUsuario = req.usuario.idUsuario;
@@ -32,17 +29,15 @@ const requerirEmailVerificado = async (req, res, next) => {
         next();
 
     } catch (error) {
-        console.error('❌ Error en middleware de verificación:', error);
+        //console.error('Error en middleware de verificación:', error);
         res.status(500).json({
             error: 'Error al verificar estado de email'
         });
     }
 };
 
-/**
- * Middleware: Verificar que el email NO esté verificado
- * Usar en endpoints de verificación para evitar re-verificaciones
- */
+
+//Middleware: Verificar que el email NO esté verificado
 const requerirEmailNoVerificado = async (req, res, next) => {
     try {
         const idUsuario = req.body.idUsuario || req.params.idUsuario;
@@ -75,7 +70,7 @@ const requerirEmailNoVerificado = async (req, res, next) => {
         next();
 
     } catch (error) {
-        console.error('❌ Error en middleware de verificación:', error);
+        //console.error('Error en middleware de verificación:', error);
         res.status(500).json({
             error: 'Error al verificar estado de email'
         });

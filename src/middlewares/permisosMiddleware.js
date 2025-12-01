@@ -1,8 +1,6 @@
 const db = require('../config/config');
 
-/**
- * Verifica si el usuario es admin/propietario de una categoría
- */
+//Verifica si el usuario es admin/propietario de una categoría
 const esAdminCategoria = async (req, res, next) => {
     try {
         const { idCategoria } = req.params;
@@ -35,22 +33,20 @@ const esAdminCategoria = async (req, res, next) => {
 
         return res.status(403).json({ error: 'No tienes permisos de administrador en esta categoría' });
     } catch (error) {
-        console.error('Error en middleware esAdminCategoria:', error);
+        //console.error('Error en middleware esAdminCategoria:', error);
         return res.status(500).json({ error: 'Error al verificar permisos' });
     }
 };
 
-/**
- * Verifica si el usuario es admin/propietario de una lista
- */
+//Verifica si el usuario es admin/propietario de una lista
 const esAdminLista = async (req, res, next) => {
     try {
         const { idLista } = req.params;
         const idUsuario = req.usuario.idUsuario;
 
-        console.log(`🔐 Verificando si es admin de lista ${idLista}`);
+        //console.log(`Verificando si es admin de lista ${idLista}`);
 
-        // 1️⃣ Verificar si es propietario
+        // Verificar si es propietario
         const [listaRows] = await db.execute(
             'SELECT idUsuario FROM lista WHERE idLista = ?',
             [idLista]
@@ -63,11 +59,11 @@ const esAdminLista = async (req, res, next) => {
         }
 
         if (listaRows[0].idUsuario === idUsuario) {
-            console.log('✅ Es propietario de la lista');
+            //console.log('Es propietario de la lista');
             return next();
         }
 
-        // 2️⃣ Verificar si tiene rol admin en lista compartida
+        // Verificar si tiene rol admin en lista compartida
         const [permisosRows] = await db.execute(
             `SELECT rol FROM lista_compartida 
        WHERE idLista = ? AND idUsuario = ? AND activo = TRUE AND aceptado = TRUE`,
@@ -75,17 +71,17 @@ const esAdminLista = async (req, res, next) => {
         );
 
         if (permisosRows.length > 0 && permisosRows[0].rol === 'admin') {
-            console.log('✅ Tiene rol admin en lista compartida');
+            //console.log('Tiene rol admin en lista compartida');
             return next();
         }
 
-        console.log('❌ Usuario no es admin de la lista');
+        //console.log('Usuario no es admin de la lista');
         return res.status(403).json({
             error: 'No tienes permisos de administrador en esta lista'
         });
 
     } catch (error) {
-        console.error('❌ Error en esAdminLista:', error);
+        //console.error('Error en esAdminLista:', error);
         return res.status(500).json({
             error: 'Error al verificar permisos',
             detalles: error.message
@@ -93,10 +89,7 @@ const esAdminLista = async (req, res, next) => {
     }
 };
 
-/**
- * Verifica permisos sobre una categoría (propias o compartidas)
- * @param {string} accion - 'ver', 'editar', 'eliminar', 'compartir'
- */
+//Verifica permisos sobre una categoría (propias o compartidas)
 const verificarPermisoCategoria = (accion) => {
     return async (req, res, next) => {
         try {
@@ -175,10 +168,7 @@ const verificarPermisoCategoria = (accion) => {
     };
 };
 
-/**
- * Verifica permisos sobre una lista (propias o compartidas, incluyendo herencia de categoría)
- * @param {string} accion - 'ver', 'editar', 'eliminar', 'compartir'
- */
+//Verifica permisos sobre una lista (propias o compartidas, incluyendo herencia de categoría)
 const verificarPermisoLista = (accion) => {
     return async (req, res, next) => {
         try {
@@ -299,19 +289,17 @@ const verificarPermisoLista = (accion) => {
         }
     };
 };
-/**
- * Verifica permisos sobre una tarea (propias o compartidas, con herencia)
- * @param {string} accion - 'ver', 'editar', 'eliminar', 'mover'
- */
+
+//Verifica permisos sobre una tarea (propias o compartidas, con herencia)
 const verificarPermisoTarea = (accion) => {
     return async (req, res, next) => {
         try {
             const { id } = req.params;
             const idUsuario = req.usuario.idUsuario;
 
-            console.log(`🔐 Verificando permiso "${accion}" para tarea ${id}, usuario ${idUsuario}`);
+            //console.log(`Verificando permiso "${accion}" para tarea ${id}, usuario ${idUsuario}`);
 
-            // 1️⃣ Obtener información de la tarea
+            // Obtener información de la tarea
             const [tareaRows] = await db.execute(
                 `SELECT t.*, l.idUsuario as idPropietarioLista
          FROM tarea t
@@ -321,7 +309,7 @@ const verificarPermisoTarea = (accion) => {
             );
 
             if (tareaRows.length === 0) {
-                console.log('❌ Tarea no encontrada');
+                //console.log('Tarea no encontrada');
                 return res.status(404).json({
                     success: false,
                     message: 'Tarea no encontrada'
@@ -329,22 +317,22 @@ const verificarPermisoTarea = (accion) => {
             }
 
             const tarea = tareaRows[0];
-            console.log('📋 Tarea encontrada:', {
+            /*console.log('Tarea encontrada:', {
                 idTarea: tarea.idTarea,
                 idUsuarioTarea: tarea.idUsuario,
                 idLista: tarea.idLista,
                 idPropietarioLista: tarea.idPropietarioLista
-            });
+            });*/
 
-            // 2️⃣ Verificar si es el propietario de la tarea
+            // Verificar si es el propietario de la tarea
             if (tarea.idUsuario === idUsuario) {
-                console.log('✅ Es propietario de la tarea');
+                //console.log('Es propietario de la tarea');
                 return next();
             }
 
-            // 3️⃣ Si la tarea no está en una lista, solo el propietario puede editarla
+            // Si la tarea no está en una lista, solo el propietario puede editarla
             if (!tarea.idLista) {
-                console.log('❌ Tarea sin lista y usuario no es propietario');
+                //console.log('Tarea sin lista y usuario no es propietario');
                 return res.status(403).json({
                     success: false,
                     message: 'No tienes permisos para realizar esta acción',
@@ -352,13 +340,13 @@ const verificarPermisoTarea = (accion) => {
                 });
             }
 
-            // 4️⃣ Verificar si es propietario de la lista
+            // Verificar si es propietario de la lista
             if (tarea.idPropietarioLista === idUsuario) {
-                console.log('✅ Es propietario de la lista');
+                //console.log('Es propietario de la lista');
                 return next();
             }
 
-            // 5️⃣ Verificar permisos compartidos
+            // Verificar permisos compartidos
             const [permisosRows] = await db.execute(
                 `SELECT lc.rol, lc.esCreador, lc.activo, lc.aceptado
          FROM lista_compartida lc
@@ -367,7 +355,7 @@ const verificarPermisoTarea = (accion) => {
             );
 
             if (permisosRows.length === 0) {
-                console.log('❌ Usuario sin permisos compartidos en la lista');
+                //console.log('Usuario sin permisos compartidos en la lista');
                 return res.status(403).json({
                     success: false,
                     message: 'No tienes permisos para realizar esta acción',
@@ -378,9 +366,9 @@ const verificarPermisoTarea = (accion) => {
             const permisoCompartido = permisosRows[0];
             const rol = permisoCompartido.rol;
 
-            console.log('🔍 Rol del usuario en lista compartida:', rol);
+            //console.log('Rol del usuario en lista compartida:', rol);
 
-            // 6️⃣ Validar permisos según la acción
+            // Validar permisos según la acción
             const permisosValidos = {
                 ver: ['admin', 'editor', 'colaborador', 'visor'],
                 editar: ['admin', 'editor', 'colaborador'],
@@ -389,7 +377,7 @@ const verificarPermisoTarea = (accion) => {
             };
 
             if (!permisosValidos[accion]) {
-                console.log('❌ Acción no válida:', accion);
+                //console.log('Acción no válida:', accion);
                 return res.status(400).json({
                     success: false,
                     message: 'Acción no válida'
@@ -397,11 +385,11 @@ const verificarPermisoTarea = (accion) => {
             }
 
             if (permisosValidos[accion].includes(rol)) {
-                console.log(`✅ Rol "${rol}" tiene permiso para "${accion}"`);
+                //console.log(`Rol "${rol}" tiene permiso para "${accion}"`);
                 return next();
             }
 
-            console.log(`❌ Rol "${rol}" NO tiene permiso para "${accion}"`);
+            //console.log(`Rol "${rol}" NO tiene permiso para "${accion}"`);
             return res.status(403).json({
                 success: false,
                 message: 'No tienes permisos para realizar esta acción',
@@ -409,7 +397,7 @@ const verificarPermisoTarea = (accion) => {
             });
 
         } catch (error) {
-            console.error('❌ Error en verificarPermisoTarea:', error);
+            //console.error('Error en verificarPermisoTarea:', error);
             return res.status(500).json({
                 success: false,
                 message: 'Error al verificar permisos',
@@ -419,12 +407,7 @@ const verificarPermisoTarea = (accion) => {
     };
 };
 
-/**
- * Obtiene los permisos según el rol
- * @param {string} rol - 'admin', 'colaborador', 'lector'
- * @returns {Object} Objeto con permisos booleanos
- */
-
+//Obtiene los permisos según el rol
 const obtenerPermisosPorRol = (rol) => {
     const permisos = {
         propietario: {
@@ -441,7 +424,7 @@ const obtenerPermisosPorRol = (rol) => {
             mover: true,
             compartir: true
         },
-        editor: {  // ✅ NUEVO ROL
+        editor: {  
             ver: true,
             editar: true,
             eliminar: true,
@@ -462,7 +445,7 @@ const obtenerPermisosPorRol = (rol) => {
             mover: false,
             compartir: false
         },
-        visor: {  // ✅ Alias para lector
+        visor: { 
             ver: true,
             editar: false,
             eliminar: false,
@@ -474,9 +457,7 @@ const obtenerPermisosPorRol = (rol) => {
     return permisos[rol] || permisos.lector;
 };
 
-/**
- * Verifica si el usuario tiene acceso a una categoría (lectura mínima)
- */
+//Verifica si el usuario tiene acceso a una categoría (lectura mínima)
 const tieneAccesoCategoria = async (req, res, next) => {
     try {
         const { idCategoria } = req.params;
@@ -516,7 +497,7 @@ const tieneAccesoCategoria = async (req, res, next) => {
             error: 'No tienes acceso a esta categoría'
         });
     } catch (error) {
-        console.error('Error en tieneAccesoCategoria:', error);
+        //console.error('Error en tieneAccesoCategoria:', error);
         return res.status(500).json({
             success: false,
             error: 'Error al verificar acceso'
@@ -524,9 +505,7 @@ const tieneAccesoCategoria = async (req, res, next) => {
     }
 };
 
-/**
- * Verifica si el usuario tiene acceso a una lista (lectura mínima)
- */
+//Verifica si el usuario tiene acceso a una lista (lectura mínima)
 const tieneAccesoLista = async (req, res, next) => {
     try {
         const { idLista } = req.params;
@@ -566,7 +545,7 @@ const tieneAccesoLista = async (req, res, next) => {
             error: 'No tienes acceso a esta lista'
         });
     } catch (error) {
-        console.error('Error en tieneAccesoLista:', error);
+        //console.error('Error en tieneAccesoLista:', error);
         return res.status(500).json({
             success: false,
             error: 'Error al verificar acceso'
@@ -582,13 +561,13 @@ const puedeCrearTareaEnLista = async (req, res, next) => {
 
         // Si no hay lista, puede crear tarea personal
         if (!idLista) {
-            console.log('✅ Creando tarea personal (sin lista)');
+            //console.log('Creando tarea personal (sin lista)');
             return next();
         }
 
-        console.log(`🔐 Verificando permiso para crear tarea en lista ${idLista}`);
+        //console.log(`Verificando permiso para crear tarea en lista ${idLista}`);
 
-        // 1️⃣ Verificar si es propietario de la lista
+        // Verificar si es propietario de la lista
         const [listaRows] = await db.execute(
             'SELECT idUsuario FROM lista WHERE idLista = ?',
             [idLista]
@@ -602,11 +581,11 @@ const puedeCrearTareaEnLista = async (req, res, next) => {
         }
 
         if (listaRows[0].idUsuario === idUsuario) {
-            console.log('✅ Es propietario de la lista');
+            //console.log('Es propietario de la lista');
             return next();
         }
 
-        // 2️⃣ Verificar permisos compartidos
+        // Verificar permisos compartidos
         const [permisosRows] = await db.execute(
             `SELECT rol FROM lista_compartida 
        WHERE idLista = ? AND idUsuario = ? AND activo = TRUE AND aceptado = TRUE`,
@@ -614,7 +593,7 @@ const puedeCrearTareaEnLista = async (req, res, next) => {
         );
 
         if (permisosRows.length === 0) {
-            console.log('❌ Usuario sin permisos en la lista');
+            //console.log('Usuario sin permisos en la lista');
             return res.status(403).json({
                 success: false,
                 message: 'No tienes permisos para crear tareas en esta lista'
@@ -622,15 +601,15 @@ const puedeCrearTareaEnLista = async (req, res, next) => {
         }
 
         const rol = permisosRows[0].rol;
-        console.log('🔍 Rol del usuario:', rol);
+        //console.log('Rol del usuario:', rol);
 
-        // 3️⃣ Validar rol (admin, editor, colaborador pueden crear)
+        // Validar rol (admin, editor, colaborador pueden crear)
         if (['admin', 'editor', 'colaborador'].includes(rol)) {
-            console.log(`✅ Rol "${rol}" puede crear tareas`);
+            //console.log(`Rol "${rol}" puede crear tareas`);
             return next();
         }
 
-        console.log(`❌ Rol "${rol}" NO puede crear tareas`);
+        //console.log(`Rol "${rol}" NO puede crear tareas`);
         return res.status(403).json({
             success: false,
             message: 'No tienes permisos para crear tareas en esta lista',
@@ -638,7 +617,7 @@ const puedeCrearTareaEnLista = async (req, res, next) => {
         });
 
     } catch (error) {
-        console.error('❌ Error en puedeCrearTareaEnLista:', error);
+        //console.error('Error en puedeCrearTareaEnLista:', error);
         return res.status(500).json({
             success: false,
             message: 'Error al verificar permisos',

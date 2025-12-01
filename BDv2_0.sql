@@ -1,26 +1,26 @@
--- CREATE DATABASE Tasker;
+CREATE DATABASE tasker;
 USE tasker;
 
-
 CREATE TABLE usuario (
-  idUsuario INT NOT NULL AUTO_INCREMENT,
-  nombre VARCHAR(100) NOT NULL,
-  apellido VARCHAR(100) NULL,
-  email VARCHAR(100) NOT NULL,
-  emailVerificado BOOLEAN DEFAULT FALSE,
-  bio TEXT NULL,
-  telefono VARCHAR(20) NULL,
-  ubicacion VARCHAR(100) NULL,
-  zona_horaria VARCHAR(100) NULL,
-  cargo VARCHAR(100) NULL,
-  redes_sociales JSON NULL,
-  password VARCHAR(255) NOT NULL,
-  fechaRegistro TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-  fecha_actualizacion TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER redes_sociales;
-
-  PRIMARY KEY (idUsuario),
-  UNIQUE KEY uk_usuario_email (email),
-  KEY idx_usuario_email (email)
+    idUsuario INT NOT NULL AUTO_INCREMENT,
+    nombre VARCHAR(100) NOT NULL,
+    apellido VARCHAR(100) NULL,
+    email VARCHAR(100) NOT NULL,
+    emailVerificado BOOLEAN DEFAULT FALSE,
+    bio TEXT NULL,
+    telefono VARCHAR(20) NULL,
+    ubicacion VARCHAR(100) NULL,
+    zona_horaria VARCHAR(100) NULL,
+    cargo VARCHAR(100) NULL,
+    redes_sociales JSON NULL,
+    password VARCHAR(255) NOT NULL,
+    fechaRegistro TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    PRIMARY KEY (idUsuario),
+    UNIQUE KEY uk_usuario_email (email),
+    KEY idx_usuario_email (email),
+    KEY idx_usuario_verificado (emailVerificado)
 ) ;
 CREATE INDEX idx_usuario_ubicacion ON usuario(ubicacion);
 -- ============================================
@@ -574,10 +574,6 @@ CREATE TABLE verificacion_email (
     ON UPDATE CASCADE
 );
 
--- ============================================
--- Agregar campo emailVerificado a usuario
--- ============================================
-ADD KEY idx_usuario_verificado (emailVerificado);
 
 -- ============================================
 -- Procedimiento: Limpiar códigos expirados

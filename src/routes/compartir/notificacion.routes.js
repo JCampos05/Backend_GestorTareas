@@ -1,4 +1,3 @@
-// src/routes/compartir/notificacion.routes.js
 const express = require('express');
 const router = express.Router();
 const notificacionController = require('../../controllers/compartir/notificacion.controller');

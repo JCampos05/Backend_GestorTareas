@@ -1,4 +1,3 @@
-// src/routes/compartir/invitacion.routes.js
 const express = require('express');
 const router = express.Router();
 const invitacionController = require('../../controllers/compartir/invitacion.controller');

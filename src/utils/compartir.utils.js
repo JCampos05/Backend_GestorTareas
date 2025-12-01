@@ -7,7 +7,7 @@ const generarClaveCompartir = () => {
     for (let i = 0; i < 8; i++) {
         clave += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
     }
-    console.log('🔑 generarClaveCompartir() llamada, clave:', clave);
+    console.log('generarClaveCompartir() llamada, clave:', clave);
     return clave;
 };
 

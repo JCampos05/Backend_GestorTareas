@@ -358,7 +358,6 @@ const obtenerRachaCompletacion = async (req, res) => {
 };
 
 // FUNCIONES AUXILIARES
-
 async function calcularRacha(idUsuario) {
     try {
         const [fechas] = await connection.query(

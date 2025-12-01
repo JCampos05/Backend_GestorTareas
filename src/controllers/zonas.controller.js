@@ -1,9 +1,6 @@
-// src/controllers/zonas.controller.js
 const db = require('../config/config');
 
-/**
- * Obtener todas las zonas horarias disponibles
- */
+//Obtener todas las zonas horarias disponibles
 exports.obtenerZonasHorarias = async (req, res) => {
     try {
         const { region } = req.query;
@@ -39,7 +36,7 @@ exports.obtenerZonasHorarias = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error al obtener zonas horarias:', error);
+        //console.error('Error al obtener zonas horarias:', error);
         res.status(500).json({
             success: false,
             error: 'Error al obtener zonas horarias',
@@ -48,9 +45,7 @@ exports.obtenerZonasHorarias = async (req, res) => {
     }
 };
 
-/**
- * Obtener regiones disponibles
- */
+//Obtener regiones disponibles
 exports.obtenerRegiones = async (req, res) => {
     try {
         const [regiones] = await db.execute(`
@@ -68,7 +63,7 @@ exports.obtenerRegiones = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error al obtener regiones:', error);
+        //console.error('Error al obtener regiones:', error);
         res.status(500).json({
             success: false,
             error: 'Error al obtener regiones',
@@ -77,9 +72,7 @@ exports.obtenerRegiones = async (req, res) => {
     }
 };
 
-/**
- * Actualizar zona horaria del usuario
- */
+//Actualizar zona horaria del usuario
 exports.actualizarZonaHorariaUsuario = async (req, res) => {
     try {
         const { zonaHoraria } = req.body;
@@ -111,7 +104,7 @@ exports.actualizarZonaHorariaUsuario = async (req, res) => {
             [zonaHoraria, idUsuario]
         );
 
-        console.log(`✅ Zona horaria actualizada para usuario ${idUsuario}: ${zonaHoraria}`);
+        //console.log(`Zona horaria actualizada para usuario ${idUsuario}: ${zonaHoraria}`);
 
         res.json({
             success: true,
@@ -120,7 +113,7 @@ exports.actualizarZonaHorariaUsuario = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error al actualizar zona horaria:', error);
+        //console.error('Error al actualizar zona horaria:', error);
         res.status(500).json({
             success: false,
             error: 'Error al actualizar zona horaria',
@@ -129,9 +122,7 @@ exports.actualizarZonaHorariaUsuario = async (req, res) => {
     }
 };
 
-/**
- * Obtener zona horaria del usuario actual
- */
+//Obtener zona horaria del usuario actual
 exports.obtenerZonaHorariaUsuario = async (req, res) => {
     try {
         const idUsuario = req.usuario.idUsuario || req.usuario.id;
@@ -154,7 +145,7 @@ exports.obtenerZonaHorariaUsuario = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error al obtener zona horaria:', error);
+        //console.error('Error al obtener zona horaria:', error);
         res.status(500).json({
             success: false,
             error: 'Error al obtener zona horaria',

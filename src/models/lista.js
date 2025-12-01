@@ -41,12 +41,6 @@ class Lista {
         }
     }
 
-    // Obtener todas las listas
-    // En lista.js - REEMPLAZAR obtenerTodas
-    // En lista.js - MODIFICAR el método obtenerTodas()
-
-    // En lista.js - MODIFICAR el método obtenerTodas()
-
     static async obtenerTodas(idUsuario) {
         try {
             const query = `
@@ -89,7 +83,6 @@ class Lista {
                 nombre: row.nombre,
                 color: row.color,
                 icono: row.icono,
-                // ✅ CORRECCIÓN: Convertir explícitamente a booleano
                 importante: Boolean(row.importante),
                 compartible: row.compartible,
                 claveCompartir: row.claveCompartir,
@@ -106,9 +99,6 @@ class Lista {
             throw new Error(`Error al obtener listas: ${error.message}`);
         }
     }
-
-    // Obtener lista por ID
-    // En lista.js - MODIFICAR obtenerPorId()
 
     static async obtenerPorId(id, idUsuario = null) {
         try {
@@ -138,11 +128,10 @@ class Lista {
                 return null;
             }
 
-            // ✅ CORRECCIÓN: Convertir importante a booleano antes de devolver
             const lista = rows[0];
             return {
                 ...lista,
-                importante: Boolean(lista.importante) // ✅ Conversión explícita
+                importante: Boolean(lista.importante)
             };
         } catch (error) {
             throw new Error(`Error al obtener lista: ${error.message}`);
@@ -213,10 +202,7 @@ class Lista {
         try {
             let query, params;
 
-            // CRÍTICO: Necesitamos idUsuario para obtener miDia personalizado
-            // El controlador debe pasar req.usuario.idUsuario
-            const usuarioParaMiDia = idUsuario || 0; // Fallback si no viene
-
+            const usuarioParaMiDia = idUsuario || 0; 
             // Query actualizada con campo miDia
             query = `
             SELECT 
@@ -239,11 +225,10 @@ class Lista {
                 t.idUsuarioAsignado, 
                 u.nombre as nombreUsuarioAsignado, 
                 u.email as emailUsuarioAsignado,
-                -- ✅ Campo miDia personalizado por usuario
                 CAST(EXISTS(
                     SELECT 1 FROM tarea_mi_dia tmd 
                     WHERE tmd.idTarea = t.idTarea 
-                      AND tmd.idUsuario = ?
+                    AND tmd.idUsuario = ?
                 ) AS UNSIGNED) as miDia
             FROM lista l
             LEFT JOIN categoria c ON l.idCategoria = c.idCategoria
@@ -255,7 +240,7 @@ class Lista {
 
             params = [usuarioParaMiDia, id];
 
-            console.log('🔍 Query obtenerConTareas:', { idLista: id, idUsuario: usuarioParaMiDia });
+            //console.log('Query obtenerConTareas:', { idLista: id, idUsuario: usuarioParaMiDia });
 
             const [rows] = await db.execute(query, params);
 
@@ -277,7 +262,7 @@ class Lista {
                 tareas: []
             };
 
-            // ✅ Mapear tareas con miDia normalizado
+            // Mapear tareas con miDia normalizado
             rows.forEach(row => {
                 if (row.idTarea) {
                     const tarea = {
@@ -288,7 +273,7 @@ class Lista {
                         estado: row.estado,
                         fechaCreacion: row.fechaCreacionTarea,
                         fechaVencimiento: row.fechaVencimiento,
-                        miDia: Boolean(row.miDia === 1 || row.miDia === true), // ✅ Conversión explícita
+                        miDia: Boolean(row.miDia === 1 || row.miDia === true), 
                         repetir: Boolean(row.repetir === 1 || row.repetir === true),
                         pasos: row.pasos,
                         notas: row.notas,
@@ -305,23 +290,23 @@ class Lista {
                         importante: lista.importante
                     };
 
-                    console.log(`📋 Tarea ${tarea.idTarea} - miDia:`, {
+                    /*console.log(`Tarea ${tarea.idTarea} - miDia:`, {
                         valorBD: row.miDia,
                         valorNormalizado: tarea.miDia,
                         tipo: typeof tarea.miDia
-                    });
+                    });*/
 
                     lista.tareas.push(tarea);
                 }
             });
 
-            console.log(`✅ Lista cargada con ${lista.tareas.length} tareas. IDs:`,
+            /*console.log(`Lista cargada con ${lista.tareas.length} tareas. IDs:`,
                 lista.tareas.map(t => `${t.idTarea}(miDia:${t.miDia})`).join(', ')
-            );
+            );*/
 
             return lista;
         } catch (error) {
-            console.error('❌ Error en obtenerConTareas:', error);
+            //console.error('Error en obtenerConTareas:', error);
             throw new Error(`Error al obtener lista con tareas: ${error.message}`);
         }
     }
@@ -350,13 +335,13 @@ class Lista {
         `;
             const [rows] = await db.execute(query, [idCategoria, idUsuario]);
 
-            // ✅ CORRECCIÓN: Mapear explícitamente importante como booleano
+            //  Mapear explícitamente importante como booleano
             return rows.map(row => ({
                 idLista: row.idLista,
                 nombre: row.nombre,
                 color: row.color,
                 icono: row.icono,
-                importante: Boolean(row.importante), // ✅ Conversión explícita
+                importante: Boolean(row.importante), 
                 compartible: row.compartible,
                 claveCompartir: row.claveCompartir,
                 idCategoria: row.idCategoria,
@@ -375,8 +360,6 @@ class Lista {
         try {
             let query, params;
 
-            // ✅ Las tareas SÍ tienen idUsuario propio, así que siempre filtramos por lista
-            // El middleware ya verificó que el usuario tiene acceso a la lista
             if (idUsuario !== null) {
                 query = `
                 SELECT 
@@ -389,7 +372,6 @@ class Lista {
             `;
                 params = [id, idUsuario];
             } else {
-                // ✅ Sin verificar usuario, contamos todas las tareas de la lista
                 query = `
                 SELECT 
                     COUNT(*) as total,

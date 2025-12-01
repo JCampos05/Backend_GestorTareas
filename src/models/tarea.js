@@ -25,7 +25,7 @@ class Tarea {
         try {
             await connection.beginTransaction();
 
-            // 1️⃣ Verificar que la tarea existe y obtener info
+            // Verificar que la tarea existe y obtener info
             const [tareaRows] = await connection.execute(
                 `SELECT t.*, l.idUsuario as idPropietarioLista, l.nombre as nombreLista
                  FROM tarea t 
@@ -41,7 +41,7 @@ class Tarea {
 
             const tarea = tareaRows[0];
 
-            // 2️⃣ Verificar que quien asigna es propietario o admin
+            // Verificar que quien asigna es propietario o admin
             let puedeAsignar = false;
 
             // Es propietario de la lista
@@ -68,7 +68,7 @@ class Tarea {
                 };
             }
 
-            // 3️⃣ Verificar que el usuario a asignar tiene acceso a la lista
+            // Verificar que el usuario a asignar tiene acceso a la lista
             if (tarea.idLista) {
                 const [accesoRows] = await connection.execute(
                     `SELECT rol FROM lista_compartida 
@@ -85,13 +85,13 @@ class Tarea {
                 }
             }
 
-            // 4️⃣ Asignar la tarea
+            // Asignar la tarea
             await connection.execute(
                 'UPDATE tarea SET idUsuarioAsignado = ? WHERE idTarea = ?',
                 [idUsuarioAsignado, idTarea]
             );
 
-            // 5️⃣ Obtener nombre del usuario que asigna
+            // Obtener nombre del usuario que asigna
             const [usuarioAsignaRows] = await connection.execute(
                 'SELECT nombre FROM usuario WHERE idUsuario = ?',
                 [idUsuarioQuienAsigna]
@@ -99,7 +99,7 @@ class Tarea {
 
             const nombreQuienAsigna = usuarioAsignaRows[0]?.nombre || 'Alguien';
 
-            // 6️⃣ Crear notificación
+            // Crear notificación
             await connection.execute(
                 `INSERT INTO notificaciones 
                     (id_usuario, tipo, titulo, mensaje, datos_adicionales, leida) 
@@ -121,7 +121,7 @@ class Tarea {
             );
             await connection.commit();
 
-            // 7️⃣ Obtener tarea actualizada
+            // Obtener tarea actualizada
             const [tareaActualizada] = await connection.execute(
                 `SELECT t.*, 
                         u.nombre as nombreUsuarioAsignado,
@@ -140,7 +140,7 @@ class Tarea {
 
         } catch (error) {
             await connection.rollback();
-            console.error('Error al asignar tarea:', error);
+            //console.error('Error al asignar tarea:', error);
             throw error;
         } finally {
             connection.release();
@@ -166,7 +166,7 @@ class Tarea {
 
             return { success: true, message: 'Tarea desasignada exitosamente' };
         } catch (error) {
-            console.error('Error al desasignar tarea:', error);
+            //console.error('Error al desasignar tarea:', error);
             throw error;
         }
     }
@@ -175,7 +175,7 @@ class Tarea {
     // Método helper para verificar permisos
     static async verificarPermisos(idTarea, idUsuario, accion) {
         try {
-            console.log(`🔍 Verificando permisos: tarea=${idTarea}, usuario=${idUsuario}, accion=${accion}`);
+            //console.log(`Verificando permisos: tarea=${idTarea}, usuario=${idUsuario}, accion=${accion}`);
 
             const [tareaRows] = await db.execute(
                 'SELECT t.*, l.idUsuario as idPropietarioLista FROM tarea t LEFT JOIN lista l ON t.idLista = l.idLista WHERE t.idTarea = ?',
@@ -183,33 +183,33 @@ class Tarea {
             );
 
             if (tareaRows.length === 0) {
-                console.log('❌ Tarea no encontrada');
+                //console.log('Tarea no encontrada');
                 return { permiso: false, motivo: 'Tarea no encontrada' };
             }
 
             const tarea = tareaRows[0];
-            console.log('📋 Tarea encontrada:', {
+            /*console.log('Tarea encontrada:', {
                 idTarea: tarea.idTarea,
                 idUsuario: tarea.idUsuario,
                 idLista: tarea.idLista,
                 idPropietarioLista: tarea.idPropietarioLista
-            });
+            });*/
 
-            // 1️⃣ Es propietario de la tarea
+            // Es propietario de la tarea
             if (tarea.idUsuario === idUsuario) {
-                console.log('✅ Es propietario de la tarea');
+                //console.log('Es propietario de la tarea');
                 return { permiso: true, tarea };
             }
 
-            // 2️⃣ Es propietario de la lista
+            // Es propietario de la lista
             if (tarea.idPropietarioLista === idUsuario) {
-                console.log('✅ Es propietario de la lista');
+                //console.log('Es propietario de la lista');
                 return { permiso: true, tarea };
             }
 
-            // 3️⃣ Verificar permisos compartidos
+            // Verificar permisos compartidos
             if (tarea.idLista) {
-                console.log('🔍 Verificando permisos compartidos en lista', tarea.idLista);
+                //console.log('Verificando permisos compartidos en lista', tarea.idLista);
 
                 const [permisosRows] = await db.execute(
                     `SELECT rol FROM lista_compartida 
@@ -219,7 +219,7 @@ class Tarea {
 
                 if (permisosRows.length > 0) {
                     const rol = permisosRows[0].rol;
-                    console.log('👤 Rol encontrado:', rol);
+                    //console.log('Rol encontrado:', rol);
 
                     const permisosRol = {
                         ver: ['admin', 'editor', 'colaborador', 'visor'],
@@ -228,22 +228,22 @@ class Tarea {
                     };
 
                     if (permisosRol[accion]?.includes(rol)) {
-                        console.log(`✅ Rol "${rol}" tiene permiso para "${accion}"`);
+                        //console.log(`Rol "${rol}" tiene permiso para "${accion}"`);
                         return { permiso: true, tarea, rol };
                     }
 
-                    console.log(`❌ Rol "${rol}" NO tiene permiso para "${accion}"`);
+                    //console.log(`Rol "${rol}" NO tiene permiso para "${accion}"`);
                     return { permiso: false, motivo: `Rol "${rol}" no permite ${accion}`, rol };
                 }
 
-                console.log('❌ No hay permisos compartidos');
+                //console.log('No hay permisos compartidos');
             }
 
-            console.log('❌ Sin permisos');
+            //console.log('Sin permisos');
             return { permiso: false, motivo: 'Sin permisos' };
 
         } catch (error) {
-            console.error('❌ Error en verificarPermisos:', error);
+            //console.error('Error en verificarPermisos:', error);
             return { permiso: false, motivo: 'Error al verificar permisos', error: error.message };
         }
     }
@@ -301,7 +301,7 @@ class Tarea {
                 EXISTS(
                     SELECT 1 FROM tarea_mi_dia tmd 
                     WHERE tmd.idTarea = t.idTarea 
-                      AND tmd.idUsuario = ?
+                        AND tmd.idUsuario = ?
                 ) as miDia
             FROM tarea t
             LEFT JOIN lista l ON t.idLista = l.idLista
@@ -345,7 +345,7 @@ class Tarea {
                 EXISTS(
                     SELECT 1 FROM tarea_mi_dia tmd 
                     WHERE tmd.idTarea = t.idTarea 
-                      AND tmd.idUsuario = ?
+                        AND tmd.idUsuario = ?
                 ) as miDia
             FROM tarea t
             LEFT JOIN lista l ON t.idLista = l.idLista
@@ -364,7 +364,7 @@ class Tarea {
         }
     }
 
-    // ✅ NUEVO: Obtener usuarios disponibles para asignar en una lista
+    //  Obtener usuarios disponibles para asignar en una lista
     static async obtenerUsuariosDisponibles(idLista, idUsuarioSolicitante) {
         try {
             // Verificar que el solicitante es propietario o admin
@@ -413,7 +413,7 @@ class Tarea {
             return { success: true, usuarios };
 
         } catch (error) {
-            console.error('Error al obtener usuarios disponibles:', error);
+            //console.error('Error al obtener usuarios disponibles:', error);
             throw error;
         }
     }
@@ -424,7 +424,7 @@ class Tarea {
             const { permiso, tarea, motivo } = await this.verificarPermisos(id, idUsuario, 'editar');
 
             if (!permiso) {
-                console.log('❌ Sin permisos para actualizar:', motivo);
+                //console.log('Sin permisos para actualizar:', motivo);
                 return null;
             }
             const campos = [];
@@ -515,15 +515,15 @@ class Tarea {
     // Eliminar tarea
     static async eliminar(id, idUsuario) {
         try {
-            // ✅ Verificar permisos primero (solo admin y editor pueden eliminar)
+            // Verificar permisos primero (solo admin y editor pueden eliminar)
             const { permiso, motivo } = await this.verificarPermisos(id, idUsuario, 'eliminar');
 
             if (!permiso) {
-                console.log('❌ Sin permisos para eliminar:', motivo);
+                //console.log('Sin permisos para eliminar:', motivo);
                 return false;
             }
 
-            // ✅ Eliminar SIN filtro de idUsuario
+            // Eliminar SIN filtro de idUsuario
             const query = 'DELETE FROM tarea WHERE idTarea = ?';
             const [result] = await db.execute(query, [id]);
 
@@ -536,75 +536,75 @@ class Tarea {
     // Cambiar estado de tarea
     static async cambiarEstado(id, estado, idUsuario) {
         try {
-            console.log('🔧 Tarea.cambiarEstado:', { id, estado, idUsuario });
+            //console.log('Tarea.cambiarEstado:', { id, estado, idUsuario });
 
-            // 1️⃣ Primero obtener la tarea para saber si está en una lista
+            // Primero obtener la tarea para saber si está en una lista
             const [tareaRows] = await db.execute(
                 'SELECT t.*, l.idUsuario as idPropietarioLista FROM tarea t LEFT JOIN lista l ON t.idLista = l.idLista WHERE t.idTarea = ?',
                 [id]
             );
 
             if (tareaRows.length === 0) {
-                console.log('❌ Tarea no encontrada:', id);
+                //console.log('Tarea no encontrada:', id);
                 return null;
             }
 
             const tarea = tareaRows[0];
-            console.log('📋 Tarea encontrada:', { idTarea: tarea.idTarea, idUsuario: tarea.idUsuario, idLista: tarea.idLista });
+            //console.log('Tarea encontrada:', { idTarea: tarea.idTarea, idUsuario: tarea.idUsuario, idLista: tarea.idLista });
 
-            // 2️⃣ Verificar permisos
+            // Verificar permisos
             let tienePermiso = false;
 
             // Es el propietario de la tarea
             if (tarea.idUsuario === idUsuario) {
-                console.log('✅ Es propietario de la tarea');
+                //console.log('Es propietario de la tarea');
                 tienePermiso = true;
             }
             // Es el propietario de la lista
             else if (tarea.idPropietarioLista === idUsuario) {
-                console.log('✅ Es propietario de la lista');
+                //console.log('Es propietario de la lista');
                 tienePermiso = true;
             }
             // Verificar permisos compartidos
             else if (tarea.idLista) {
                 const [permisosRows] = await db.execute(
                     `SELECT rol FROM lista_compartida 
-         WHERE idLista = ? AND idUsuario = ? AND activo = TRUE AND aceptado = TRUE`,
+                        WHERE idLista = ? AND idUsuario = ? AND activo = TRUE AND aceptado = TRUE`,
                     [tarea.idLista, idUsuario]
                 );
 
                 if (permisosRows.length > 0) {
                     const rol = permisosRows[0].rol;
-                    console.log('🔍 Rol en lista compartida:', rol);
+                    console.log('Rol en lista compartida:', rol);
 
                     // admin, editor, colaborador pueden editar
                     if (['admin', 'editor', 'colaborador'].includes(rol)) {
-                        console.log('✅ Tiene permisos por rol compartido');
+                        console.log('Tiene permisos por rol compartido');
                         tienePermiso = true;
                     }
                 }
             }
 
             if (!tienePermiso) {
-                console.log('❌ Sin permisos para modificar esta tarea');
+                console.log('Sin permisos para modificar esta tarea');
                 return null;
             }
 
-            // 3️⃣ Actualizar estado
-            console.log('💾 Actualizando estado en BD...');
+            // Actualizar estado
+            console.log('Actualizando estado en BD...');
             const [result] = await db.execute(
                 'UPDATE tarea SET estado = ? WHERE idTarea = ?',
                 [estado, id]
             );
 
             if (result.affectedRows === 0) {
-                console.log('❌ No se actualizó ninguna fila');
+                console.log('No se actualizó ninguna fila');
                 return null;
             }
 
-            console.log('✅ Estado actualizado correctamente');
+            console.log('Estado actualizado correctamente');
 
-            // 4️⃣ Retornar tarea actualizada
+            // Retornar tarea actualizada
             const [tareaActualizada] = await db.execute(
                 'SELECT * FROM tarea WHERE idTarea = ?',
                 [id]
@@ -613,7 +613,7 @@ class Tarea {
             return tareaActualizada[0];
 
         } catch (error) {
-            console.error('❌ Error en Tarea.cambiarEstado:', error);
+            console.error('Error en Tarea.cambiarEstado:', error);
             throw error;
         }
     }
@@ -633,7 +633,7 @@ class Tarea {
                 EXISTS(
                     SELECT 1 FROM tarea_mi_dia tmd 
                     WHERE tmd.idTarea = t.idTarea 
-                      AND tmd.idUsuario = ?
+                        AND tmd.idUsuario = ?
                 ) as miDia
             FROM tarea t
             LEFT JOIN lista l ON t.idLista = l.idLista
@@ -711,7 +711,7 @@ class Tarea {
                 EXISTS(
                     SELECT 1 FROM tarea_mi_dia tmd 
                     WHERE tmd.idTarea = t.idTarea 
-                      AND tmd.idUsuario = ?
+                        AND tmd.idUsuario = ?
                 ) as miDia
             FROM tarea t
             LEFT JOIN lista l ON t.idLista = l.idLista
@@ -751,7 +751,7 @@ class Tarea {
                 CAST(EXISTS(
                     SELECT 1 FROM tarea_mi_dia tmd 
                     WHERE tmd.idTarea = t.idTarea 
-                      AND tmd.idUsuario = ?
+                        AND tmd.idUsuario = ?
                 ) AS UNSIGNED) as miDia
             FROM tarea t
             LEFT JOIN lista l ON t.idLista = l.idLista
@@ -770,12 +770,12 @@ class Tarea {
         `;
             const [rows] = await db.execute(query, [idUsuario, idUsuario, idLista, idUsuario, idUsuario]);
 
-            console.log('🔍 Tareas desde BD (obtenerPorLista):', rows.map(t => ({
+            /*console.log('Tareas desde BD (obtenerPorLista):', rows.map(t => ({
                 id: t.idTarea,
                 nombre: t.nombre,
                 miDia: t.miDia,
                 tipo: typeof t.miDia
-            })));
+            })));*/
 
             return rows;
         } catch (error) {
@@ -799,7 +799,7 @@ class Tarea {
             }
 
             if (miDia) {
-                // ✅ Agregar a Mi Día (solo para este usuario)
+                // Agregar a Mi Día (solo para este usuario)
                 await connection.execute(
                     `INSERT INTO tarea_mi_dia (idTarea, idUsuario, fechaAgregado) 
                  VALUES (?, ?, NOW())
@@ -807,7 +807,7 @@ class Tarea {
                     [id, idUsuario]
                 );
             } else {
-                // ✅ Quitar de Mi Día (solo para este usuario)
+                // Quitar de Mi Día (solo para este usuario)
                 await connection.execute(
                     'DELETE FROM tarea_mi_dia WHERE idTarea = ? AND idUsuario = ?',
                     [id, idUsuario]
@@ -816,7 +816,7 @@ class Tarea {
 
             await connection.commit();
 
-            // ✅ Retornar tarea actualizada con estado de Mi Día para este usuario
+            // Retornar tarea actualizada con estado de Mi Día para este usuario
             const [tareaActualizada] = await connection.execute(
                 `SELECT 
                 t.*,
@@ -829,12 +829,12 @@ class Tarea {
                 EXISTS(
                     SELECT 1 FROM tarea_mi_dia tmd 
                     WHERE tmd.idTarea = t.idTarea 
-                      AND tmd.idUsuario = ?
+                        AND tmd.idUsuario = ?
                 ) as miDia
-             FROM tarea t
-             LEFT JOIN lista l ON t.idLista = l.idLista
-             LEFT JOIN usuario ua ON t.idUsuarioAsignado = ua.idUsuario
-             WHERE t.idTarea = ?`,
+                FROM tarea t
+                 LEFT JOIN lista l ON t.idLista = l.idLista
+                LEFT JOIN usuario ua ON t.idUsuarioAsignado = ua.idUsuario
+                WHERE t.idTarea = ?`,
                 [idUsuario, id]
             );
 
@@ -873,7 +873,6 @@ class Tarea {
             WHERE tmd.idUsuario = ?
                 AND t.estado != 'C'
                 AND (
-                    -- ✅ FILTRO CRÍTICO: Solo tareas sin asignar O asignadas a este usuario
                     t.idUsuarioAsignado IS NULL 
                     OR t.idUsuarioAsignado = ?
                 )
@@ -886,10 +885,10 @@ class Tarea {
             ORDER BY t.fechaCreacion DESC
         `;
 
-            // ✅ Ahora necesitamos 4 parámetros (idUsuario se usa 4 veces)
+            // Ahora necesitamos 4 parámetros (idUsuario se usa 4 veces)
             const [rows] = await db.execute(query, [idUsuario, idUsuario, idUsuario, idUsuario]);
 
-            //console.log(`🌞 Mi Día para usuario ${idUsuario}: ${rows.length} tareas`);
+            //console.log(`Mi Día para usuario ${idUsuario}: ${rows.length} tareas`);
 
             return rows;
         } catch (error) {
@@ -897,7 +896,7 @@ class Tarea {
         }
     }
 
-    // ✅ NUEVO: Obtener TODAS las tareas de una lista (sin filtrar por usuario)
+    // Obtener TODAS las tareas de una lista (sin filtrar por usuario)
     static async obtenerTodasPorLista(idLista, idUsuarioSolicitante) {
         try {
             // Verificar que el usuario tiene acceso a la lista
@@ -929,7 +928,7 @@ class Tarea {
                 return { success: false, message: 'No tienes acceso a esta lista' };
             }
 
-            // ✅ Obtener TODAS las tareas de la lista CON miDia personalizado
+            // Obtener TODAS las tareas de la lista CON miDia personalizado
             const [tareas] = await db.execute(
                 `SELECT 
                 t.*,

@@ -36,11 +36,11 @@ router.get('/perfil', verificarToken, UsuarioController.obtenerPerfil);
 router.put('/perfil', verificarToken, UsuarioController.actualizarPerfil);
 router.put('/nombre', verificarToken, UsuarioController.actualizarNombre);
 
-// 🔒 SOLO ESTA RUTA CON MIDDLEWARE DE VERIFICACIÓN
+// SOLO ESTA RUTA CON MIDDLEWARE DE VERIFICACIÓN
 router.put('/password', verificarToken, requerirEmailVerificado, UsuarioController.cambiarPassword);
 
 // ============================================
-// RUTA DE DESARROLLO (NUEVA) ✨
+// RUTA DE DESARROLLO 
 // ============================================
 if (process.env.NODE_ENV === 'development') {
     router.post('/test-email', UsuarioController.testEmail);

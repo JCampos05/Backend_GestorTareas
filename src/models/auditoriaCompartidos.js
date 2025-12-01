@@ -1,44 +1,43 @@
-// src/models/auditoriaCompartidos.js
 const db = require('../config/config');
 
 class AuditoriaCompartidos {
-    /**
-     * Registrar acción en auditoría
-     */
-    static async registrar({ tipo, idEntidad, idUsuario, accion, detalles = {} }) {
+    static async registrar(data) {
         try {
-            const [result] = await db.execute(
-                `INSERT INTO auditoria_compartidos 
-                (tipo, idEntidad, idUsuario, accion, detalles) 
-                VALUES (?, ?, ?, ?, ?)`,
-                [tipo, idEntidad, idUsuario, accion, JSON.stringify(detalles)]
-            );
+            const query = `
+                INSERT INTO auditoria_compartidos 
+                (tipo, idEntidad, idUsuario, accion, detalles)
+                VALUES (?, ?, ?, ?, ?)
+            `;
+            const [result] = await db.execute(query, [
+                data.tipo,
+                data.idEntidad,
+                data.idUsuario,
+                data.accion,
+                JSON.stringify(data.detalles || {})
+            ]);
+
             return result.insertId;
         } catch (error) {
-            // No fallar si la auditoría falla
-            console.error('Error al registrar auditoría:', error);
+            console.error('Error en auditoría:', error);
+            // No lanzar error para no bloquear operaciones
             return null;
         }
     }
 
-    /**
-     * Obtener historial de una entidad
-     */
-    static async obtenerHistorial(tipo, idEntidad) {
+    static async obtenerPorEntidad(tipo, idEntidad, limite = 50) {
         try {
-            const [rows] = await db.execute(
-                `SELECT a.*, u.nombre as nombreUsuario, u.email
-                 FROM auditoria_compartidos a
-                 JOIN usuario u ON a.idUsuario = u.idUsuario
-                 WHERE a.tipo = ? AND a.idEntidad = ?
-                 ORDER BY a.fecha DESC
-                 LIMIT 100`,
-                [tipo, idEntidad]
-            );
+            const query = `
+                SELECT a.*, u.nombre as nombreUsuario
+                FROM auditoria_compartidos a
+                JOIN usuario u ON a.idUsuario = u.idUsuario
+                WHERE a.tipo = ? AND a.idEntidad = ?
+                ORDER BY a.fecha DESC
+                LIMIT ?
+            `;
+            const [rows] = await db.execute(query, [tipo, idEntidad, limite]);
             return rows;
         } catch (error) {
-            console.error('Error al obtener historial:', error);
-            return [];
+            throw new Error(`Error al obtener auditoría: ${error.message}`);
         }
     }
 }

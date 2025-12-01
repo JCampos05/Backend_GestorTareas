@@ -1,10 +1,7 @@
-// src/controllers/chat.controller.js
 const Mensaje = require('../models/mensaje');
 const ChatService = require('../socket/services/chat.service');
 
-/**
- * Obtener historial de mensajes de una lista
- */
+//Obtener historial de mensajes de una lista
 exports.obtenerHistorial = async (req, res) => {
     try {
         const { idLista } = req.params;
@@ -57,9 +54,7 @@ exports.obtenerHistorial = async (req, res) => {
     }
 };
 
-/**
- * Obtener mensajes no leídos
- */
+//Obtener mensajes no leídos
 exports.obtenerNoLeidos = async (req, res) => {
     try {
         const idUsuario = req.usuario.idUsuario;
@@ -84,9 +79,7 @@ exports.obtenerNoLeidos = async (req, res) => {
     }
 };
 
-/**
- * Marcar mensajes como leídos
- */
+//Marcar mensajes como leídos
 exports.marcarComoLeidos = async (req, res) => {
     try {
         const { idLista } = req.params;
@@ -116,9 +109,7 @@ exports.marcarComoLeidos = async (req, res) => {
     }
 };
 
-/**
- * Obtener estadísticas del chat
- */
+//Obtener estadísticas del chat
 exports.obtenerEstadisticas = async (req, res) => {
     try {
         const { idLista } = req.params;
@@ -148,9 +139,7 @@ exports.obtenerEstadisticas = async (req, res) => {
     }
 };
 
-/**
- * Editar mensaje (REST endpoint)
- */
+//Editar mensaje (REST endpoint)
 exports.editarMensaje = async (req, res) => {
     try {
         const { idMensaje } = req.params;
@@ -183,9 +172,7 @@ exports.editarMensaje = async (req, res) => {
     }
 };
 
-/**
- * Eliminar mensaje (REST endpoint)
- */
+//Eliminar mensaje (REST endpoint)
 exports.eliminarMensaje = async (req, res) => {
     try {
         const { idMensaje } = req.params;
@@ -207,9 +194,7 @@ exports.eliminarMensaje = async (req, res) => {
     }
 };
 
-/**
- * Obtener usuarios online en una lista
- */
+//Obtener usuarios online en una lista
 exports.obtenerUsuariosOnline = async (req, res) => {
     try {
         const { idLista } = req.params;

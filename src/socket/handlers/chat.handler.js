@@ -1,7 +1,7 @@
 const ChatService = require('../services/chat.service');
 const Mensaje = require('../../models/mensaje');
-const sseManager = require('../../utils/sseManager'); // ✅ AGREGAR
-const pool = require('../../config/config'); // ✅ AGREGAR
+const sseManager = require('../../utils/sseManager'); 
+const pool = require('../../config/config');
 
 class ChatHandler {
     constructor(io, socket) {
@@ -39,12 +39,10 @@ class ChatHandler {
         this.socket.on('disconnect', this.handleDisconnect.bind(this));
     }
 
-    /**
-     * Unirse a una sala de chat (lista)
-     */
+    //Unirse a una sala de chat (lista)
     async handleJoinList({ idLista }) {
         try {
-            console.log(`🔥 Usuario ${this.userEmail} intenta unirse a lista ${idLista}`);
+            //console.log(`Usuario ${this.userEmail} intenta unirse a lista ${idLista}`);
 
             // Validar idLista
             if (!idLista || isNaN(idLista)) {
@@ -71,7 +69,7 @@ class ChatHandler {
             // Registrar en base de datos
             await ChatService.registrarUsuarioOnline(this.userId, idLista, this.socket.id);
 
-            console.log(`✅ Usuario ${this.userEmail} se unió a ${roomName}`);
+            //console.log(`Usuario ${this.userEmail} se unió a ${roomName}`);
 
             // Notificar a otros usuarios
             this.socket.to(roomName).emit('user:joined', {
@@ -100,9 +98,7 @@ class ChatHandler {
         }
     }
 
-    /**
-     * Salir de una sala de chat
-     */
+    //Salir de una sala de chat
     async handleLeaveList({ idLista }) {
         try {
             const roomName = `lista:${idLista}`;
@@ -122,26 +118,21 @@ class ChatHandler {
                 email: this.userEmail
             });
 
-            console.log(`👋 Usuario ${this.userEmail} salió de ${roomName}`);
+            console.log(`Usuario ${this.userEmail} salió de ${roomName}`);
 
         } catch (error) {
             console.error('Error en leave:list:', error);
         }
     }
 
-    /**
-         * Enviar mensaje
-         */
-    /**
-         * Enviar mensaje
-         */
+    // Enviar mensaje
     async handleSendMessage({ idLista, contenido }) {
         const connection = await pool.getConnection();
 
         try {
             await connection.beginTransaction();
 
-            console.log(`💬 Mensaje de ${this.userEmail} en lista ${idLista}`);
+            //console.log(`Mensaje de ${this.userEmail} en lista ${idLista}`);
 
             // Crear mensaje
             const mensaje = await ChatService.crearMensaje(idLista, this.userId, contenido);
@@ -163,13 +154,13 @@ class ChatHandler {
             const roomName = `lista:${idLista}`;
             this.chatNamespace.to(roomName).emit('message:new', mensajeCompleto);
 
-            console.log(`✅ Mensaje enviado en ${roomName}`);
+            console.log(`Mensaje enviado en ${roomName}`);
 
-            // ✅ SISTEMA DE NOTIFICACIONES CON LOGS EXHAUSTIVOS
+            // SISTEMA DE NOTIFICACIONES CON LOGS EXHAUSTIVOS
             try {
-                console.log('📬 ===== SISTEMA DE NOTIFICACIONES SSE =====');
+                //console.log('===== SISTEMA DE NOTIFICACIONES SSE =====');
 
-                // 1️⃣ Obtener IDs de usuarios ONLINE en el chat
+                // Obtener IDs de usuarios ONLINE en el chat
                 const [usuariosOnline] = await connection.execute(
                     `SELECT DISTINCT idUsuario 
                 FROM usuario_actividad 
@@ -180,10 +171,10 @@ class ChatHandler {
                 );
 
                 const idsOnline = usuariosOnline.map(u => u.idUsuario);
-                console.log(`👥 Usuarios ONLINE en chat: [${idsOnline.join(', ')}]`);
-                console.log(`👤 Remitente: ${this.userId}`);
+                //console.log(`Usuarios ONLINE en chat: [${idsOnline.join(', ')}]`);
+                //console.log(`Remitente: ${this.userId}`);
 
-                // 2️⃣ Obtener TODOS los usuarios de la lista
+                // Obtener TODOS los usuarios de la lista
                 const [todosUsuarios] = await connection.execute(
                     `SELECT DISTINCT lc.idUsuario, u.nombre, u.email
                  FROM lista_compartida lc
@@ -194,18 +185,18 @@ class ChatHandler {
                     [idLista]
                 );
 
-                console.log(`📋 Total usuarios en lista: ${todosUsuarios.length}`);
+                //console.log(`Total usuarios en lista: ${todosUsuarios.length}`);
 
-                // 3️⃣ Filtrar usuarios offline (excluir remitente y online)
+                // Filtrar usuarios offline (excluir remitente y online)
                 const usuariosOffline = todosUsuarios.filter(u =>
                     u.idUsuario !== this.userId && !idsOnline.includes(u.idUsuario)
                 );
 
-                console.log(`🔴 Usuarios OFFLINE: ${usuariosOffline.length}`);
+                //console.log(`Usuarios OFFLINE: ${usuariosOffline.length}`);
 
                 if (usuariosOffline.length === 0) {
-                    console.log('✅ Todos los usuarios están online o eres el único usuario');
-                    console.log('📬 ========================================\n');
+                    //console.log('Todos los usuarios están online o eres el único usuario');
+                    //console.log('========================================\n');
                     await connection.commit();
                     return;
                 }
@@ -214,16 +205,16 @@ class ChatHandler {
                     console.log(`   - ${u.nombre} (ID: ${u.idUsuario})`);
                 });
 
-                // 4️⃣ Obtener nombre de la lista
+                // Obtener nombre de la lista
                 const [listas] = await connection.execute(
                     `SELECT nombre FROM lista WHERE idLista = ?`,
                     [idLista]
                 );
                 const nombreLista = listas[0]?.nombre || 'Lista';
 
-                console.log(`📂 Lista: "${nombreLista}"`);
+                //console.log(`Lista: "${nombreLista}"`);
 
-                // 5️⃣ Crear notificación para cada usuario offline
+                // Crear notificación para cada usuario offline
                 const notificacionController = require('../../controllers/compartir/notificacion.controller');
 
                 let notificacionesEnviadas = 0;
@@ -234,7 +225,7 @@ class ChatHandler {
                         ? contenido.substring(0, 100) + '...'
                         : contenido;
 
-                    console.log(`\n📤 [${notificacionesEnviadas + 1}/${usuariosOffline.length}] Notificando a ${usuario.nombre}`);
+                    //console.log(`\n[${notificacionesEnviadas + 1}/${usuariosOffline.length}] Notificando a ${usuario.nombre}`);
 
                     try {
                         await notificacionController.crearNotificacion(
@@ -254,18 +245,18 @@ class ChatHandler {
                         );
 
                         notificacionesEnviadas++;
-                        console.log(`   ✅ Notificación SSE enviada`);
+                        //console.log(`Notificación SSE enviada`);
                     } catch (notifError) {
-                        console.error(`   ❌ Error:`, notifError.message);
+                        //console.error(`Error:`, notifError.message);
                     }
                 }
 
-                console.log(`\n📊 Resumen: ${notificacionesEnviadas}/${usuariosOffline.length} notificaciones enviadas`);
-                console.log('📬 ========================================\n');
+                //console.log(`\nResumen: ${notificacionesEnviadas}/${usuariosOffline.length} notificaciones enviadas`);
+                //console.log('========================================\n');
 
             } catch (sseError) {
-                console.error('⚠️ Error CRÍTICO en sistema de notificaciones:', sseError);
-                console.error('Stack:', sseError.stack);
+                //console.error('Error CRÍTICO en sistema de notificaciones:', sseError);
+                //console.error('Stack:', sseError.stack);
                 // No hacemos rollback, el mensaje ya se envió correctamente
             }
 
@@ -273,7 +264,7 @@ class ChatHandler {
 
         } catch (error) {
             await connection.rollback();
-            console.error('❌ Error en message:send:', error);
+            //console.error('Error en message:send:', error);
             this.socket.emit('error', {
                 event: 'message:send',
                 message: error.message
@@ -283,9 +274,7 @@ class ChatHandler {
         }
     }
 
-    /**
-     * Editar mensaje
-     */
+    //Editar mensaje
     async handleEditMessage({ idMensaje, contenido }) {
         try {
             // Validar contenido
@@ -303,10 +292,10 @@ class ChatHandler {
                 fechaEdicion: new Date()
             });
 
-            console.log(`✏️ Mensaje ${idMensaje} editado por ${this.userEmail}`);
+            //console.log(`Mensaje ${idMensaje} editado por ${this.userEmail}`);
 
         } catch (error) {
-            console.error('Error en message:edit:', error);
+            //console.error('Error en message:edit:', error);
             this.socket.emit('error', {
                 event: 'message:edit',
                 message: error.message
@@ -314,9 +303,7 @@ class ChatHandler {
         }
     }
 
-    /**
-     * Eliminar mensaje
-     */
+    //Eliminar mensaje
     async handleDeleteMessage({ idMensaje, idLista }) {
         try {
             // Eliminar mensaje
@@ -329,7 +316,7 @@ class ChatHandler {
                 idUsuario: this.userId
             });
 
-            console.log(`🗑️ Mensaje ${idMensaje} eliminado por ${this.userEmail}`);
+            console.log(`Mensaje ${idMensaje} eliminado por ${this.userEmail}`);
 
         } catch (error) {
             console.error('Error en message:delete:', error);
@@ -340,9 +327,8 @@ class ChatHandler {
         }
     }
 
-    /**
-     * Marcar mensaje como leído
-     */
+
+    //Marcar mensaje como leído
     async handleMarkAsRead({ idMensaje, idLista }) {
         try {
             await Mensaje.marcarComoLeido(idMensaje, this.userId);
@@ -360,9 +346,7 @@ class ChatHandler {
         }
     }
 
-    /**
-     * Marcar todos los mensajes como leídos
-     */
+    //Marcar todos los mensajes como leídos
     async handleMarkAllAsRead({ idLista }) {
         try {
             const resultado = await Mensaje.marcarTodosComoLeidos(idLista, this.userId);
@@ -372,7 +356,7 @@ class ChatHandler {
                 count: resultado.mensajesMarcados
             });
 
-            console.log(`✅ ${resultado.mensajesMarcados} mensajes marcados como leídos por ${this.userEmail}`);
+            console.log(`${resultado.mensajesMarcados} mensajes marcados como leídos por ${this.userEmail}`);
 
         } catch (error) {
             console.error('Error en messages:read_all:', error);
@@ -383,9 +367,7 @@ class ChatHandler {
         }
     }
 
-    /**
-     * Usuario empieza a escribir
-     */
+    //Usuario empieza a escribir
     async handleTypingStart({ idLista }) {
         try {
             await ChatService.registrarEscribiendo(this.userId, idLista, this.socket.id);
@@ -402,9 +384,8 @@ class ChatHandler {
         }
     }
 
-    /**
-     * Usuario deja de escribir
-     */
+
+    //Usuario deja de escribir
     async handleTypingStop({ idLista }) {
         try {
             await ChatService.removerEscribiendo(this.userId, idLista, this.socket.id);
@@ -419,9 +400,8 @@ class ChatHandler {
         }
     }
 
-    /**
-     * Obtener usuarios online
-     */
+
+    //Obtener usuarios online
     async handleGetOnlineUsers({ idLista }) {
         try {
             const usuariosOnline = await ChatService.obtenerUsuariosOnline(idLista);
@@ -440,9 +420,8 @@ class ChatHandler {
         }
     }
 
-    /**
-     * Obtener estadísticas del chat
-     */
+
+    //Obtener estadísticas del chat
     async handleGetStatistics({ idLista }) {
         try {
             const estadisticas = await ChatService.obtenerEstadisticas(idLista);
@@ -461,12 +440,11 @@ class ChatHandler {
         }
     }
 
-    /**
-     * Desconexión
-     */
+
+    //Desconexión
     async handleDisconnect() {
         try {
-            console.log(`🔌 Usuario desconectado: ${this.userEmail}`);
+            //console.log(`Usuario desconectado: ${this.userEmail}`);
 
             // Remover de todas las salas online
             await ChatService.removerUsuarioOnline(this.socket.id);
@@ -482,7 +460,7 @@ class ChatHandler {
             }
 
         } catch (error) {
-            console.error('Error en disconnect:', error);
+            //console.error('Error en disconnect:', error);
         }
     }
 }

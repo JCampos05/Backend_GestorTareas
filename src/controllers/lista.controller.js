@@ -21,9 +21,9 @@ const listaController = {
                 });
             }
 
-            console.log('🔵 Creando lista:', { nombre, idCategoria, idUsuario });
+            //console.log('Creando lista:', { nombre, idCategoria, idUsuario });
 
-            //  CRÍTICO: Verificar si la categoría está compartida
+            // Verificar si la categoría está compartida
             let compartible = false;
             let claveCompartir = null;
 
@@ -34,7 +34,7 @@ const listaController = {
                 );
 
                 if (categoria.length > 0 && categoria[0].compartible) {
-                    console.log('✅ Categoría está compartida, heredando estado...');
+                    //console.log('Categoría está compartida, heredando estado...');
                     compartible = true;
 
                     // Generar clave única para la lista
@@ -51,7 +51,7 @@ const listaController = {
                         intentos++;
                     }
 
-                    console.log('🔑 Clave generada para nueva lista:', claveCompartir);
+                    //console.log('lave generada para nueva lista:', claveCompartir);
                 }
             }
 
@@ -72,9 +72,9 @@ const listaController = {
             );
 
             const idLista = result.insertId;
-            console.log('✅ Lista creada con ID:', idLista);
+            //console.log('Lista creada con ID:', idLista);
 
-            // ✅ Si la lista es compartible, agregar al propietario en lista_compartida
+            // Si la lista es compartible, agregar al propietario en lista_compartida
             if (Boolean(compartible)) {
                 await connection.execute(
                     `INSERT INTO lista_compartida 
@@ -82,9 +82,9 @@ const listaController = {
                      VALUES (?, ?, 'admin', TRUE, TRUE, TRUE, ?, CURRENT_TIMESTAMP)`,
                     [idLista, idUsuario, idUsuario]
                 );
-                console.log('✅ Propietario agregado a lista_compartida');
+                console.log('Propietario agregado a lista_compartida');
 
-                // ✅ NUEVO: Si la categoría está compartida, agregar a todos los usuarios con acceso
+                // Si la categoría está compartida, agregar a todos los usuarios con acceso
                 if (idCategoria) {
                     const [usuariosCategoria] = await connection.execute(
                         `SELECT idUsuario, rol 
@@ -93,7 +93,7 @@ const listaController = {
                         [idCategoria, idUsuario]
                     );
 
-                    console.log(`📋 Usuarios en categoría: ${usuariosCategoria.length}`);
+                    //console.log(`Usuarios en categoría: ${usuariosCategoria.length}`);
 
                     for (const usuario of usuariosCategoria) {
                         await connection.execute(
@@ -102,7 +102,7 @@ const listaController = {
                              VALUES (?, ?, ?, FALSE, TRUE, TRUE, ?, CURRENT_TIMESTAMP)`,
                             [idLista, usuario.idUsuario, usuario.rol, idUsuario]
                         );
-                        console.log(`✅ Usuario ${usuario.idUsuario} agregado a lista compartida con rol ${usuario.rol}`);
+                        //console.log(`Usuario ${usuario.idUsuario} agregado a lista compartida con rol ${usuario.rol}`);
                     }
                 }
             }
@@ -126,7 +126,7 @@ const listaController = {
             });
         } catch (error) {
             await connection.rollback();
-            console.error('❌ Error al crear lista:', error);
+            //console.error('Error al crear lista:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al crear la lista',
@@ -162,7 +162,7 @@ const listaController = {
     obtenerListaPorId: async (req, res) => {
         try {
             const { idLista } = req.params;
-            // ✅ El middleware verificarPermisoLista('ver') ya validó acceso
+            // El middleware verificarPermisoLista('ver') ya validó acceso
             const lista = await Lista.obtenerPorId(idLista);
 
             if (!lista) {
@@ -264,10 +264,10 @@ const listaController = {
             const { idLista } = req.params;
             const idUsuario = req.usuario.idUsuario; // Obtener ID del usuario autenticado
 
-            console.log('🔍 obtenerConTareas:', { idLista, idUsuario });
+            //console.log('obtenerConTareas:', { idLista, idUsuario });
 
             // El middleware verificarPermisoLista('ver') ya validó acceso
-            // CRÍTICO: Pasar idUsuario al modelo para obtener miDia personalizado
+            // Pasar idUsuario al modelo para obtener miDia personalizado
             const lista = await Lista.obtenerConTareas(idLista, idUsuario);
 
             if (!lista) {
@@ -277,19 +277,19 @@ const listaController = {
                 });
             }
 
-            console.log('✅ Lista obtenida con tareas:', {
+            /*console.log('Lista obtenida con tareas:', {
                 idLista: lista.idLista,
                 nombre: lista.nombre,
                 totalTareas: lista.tareas.length,
                 tareasConMiDia: lista.tareas.filter(t => t.miDia).length
-            });
+            });*/
 
             res.status(200).json({
                 success: true,
                 data: lista
             });
         } catch (error) {
-            console.error('❌ Error en obtenerConTareas:', error);
+            //console.error(' Error en obtenerConTareas:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al obtener la lista con tareas',
@@ -311,7 +311,7 @@ const listaController = {
                 data: listas
             });
         } catch (error) {
-            console.error('Error en obtenerPorCategoria:', error);
+            //console.error('Error en obtenerPorCategoria:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al obtener listas por categoría',
@@ -332,7 +332,7 @@ const listaController = {
                 data: listas
             });
         } catch (error) {
-            console.error('Error en obtenerSinCategoria:', error);
+            //console.error('Error en obtenerSinCategoria:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al obtener listas sin categoría',
@@ -345,7 +345,7 @@ const listaController = {
     obtenerEstadisticas: async (req, res) => {
         try {
             const { idLista } = req.params;
-            // ✅ El middleware verificarPermisoLista('ver') ya validó acceso
+            // El middleware verificarPermisoLista('ver') ya validó acceso
             const estadisticas = await Lista.contarTareas(idLista);
 
             res.status(200).json({
@@ -353,7 +353,7 @@ const listaController = {
                 data: estadisticas
             });
         } catch (error) {
-            console.error('Error en obtenerEstadisticas:', error);
+            //console.error('Error en obtenerEstadisticas:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al obtener estadísticas',
@@ -373,7 +373,7 @@ const listaController = {
                 data: listas
             });
         } catch (error) {
-            console.error('Error en obtenerImportantes:', error);
+            //console.error('Error en obtenerImportantes:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al obtener listas importantes',

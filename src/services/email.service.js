@@ -7,13 +7,12 @@ class EmailService {
 
   async cargarTemplate(nombreTemplate) {
     try {
-      // ✅ Corregido: 'templates' (con S)
       const templatePath = path.join(__dirname, '../template/email', nombreTemplate);
-      console.log('🔍 Buscando template en:', templatePath); // Debug
+      //console.log('Buscando template en:', templatePath); 
       const html = await fs.readFile(templatePath, 'utf-8');
       return html;
     } catch (error) {
-      console.error(`❌ Error al cargar template ${nombreTemplate}:`, error);
+      //console.error(`Error al cargar template ${nombreTemplate}:`, error);
       throw new Error(`No se pudo cargar el template: ${nombreTemplate}`);
     }
   }
@@ -43,14 +42,14 @@ class EmailService {
       const mailOptions = {
         from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM_ADDRESS}>`,
         to: email,
-        subject: '🔒 Verifica tu cuenta en Taskeer',
+        subject: 'Verifica tu cuenta en Taskeer',
         html: html,
         text: `Hola ${nombre},\n\nTu código de verificación es: ${codigo}\n\nEste código expira en 15 minutos.\n\n¡Gracias por unirte a Taskeer!`
       };
 
       const info = await transporter.sendMail(mailOptions);
-      console.log('✅ Email de verificación enviado:', info.messageId);
-      console.log('📧 Destinatario:', email);
+      //console.log('Email de verificación enviado:', info.messageId);
+      //console.log('Destinatario:', email);
 
       return {
         success: true,
@@ -58,7 +57,7 @@ class EmailService {
         destinatario: email
       };
     } catch (error) {
-      console.error('❌ Error al enviar email de verificación:', error);
+      //console.error('Error al enviar email de verificación:', error);
       throw new Error('No se pudo enviar el email de verificación');
     }
   }
@@ -77,17 +76,17 @@ class EmailService {
       const mailOptions = {
         from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM_ADDRESS}>`,
         to: email,
-        subject: '🎉 ¡Bienvenido a Taskeer!',
+        subject: '¡Bienvenido a Taskeer!',
         html: html,
         text: `¡Hola ${nombre}!\n\nTu cuenta ha sido verificada exitosamente.\n\n¡Bienvenido a Taskeer!`
       };
 
       const info = await transporter.sendMail(mailOptions);
-      console.log('✅ Email de bienvenida enviado:', info.messageId);
+      //console.log('Email de bienvenida enviado:', info.messageId);
 
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error('❌ Error al enviar email de bienvenida:', error);
+      //console.error('Error al enviar email de bienvenida:', error);
       return { success: false, error: error.message };
     }
   }
@@ -95,10 +94,10 @@ class EmailService {
   async testConexion() {
     try {
       await transporter.verify();
-      console.log('✅ Conexión con servidor de email exitosa');
+      //console.log('Conexión con servidor de email exitosa');
       return { success: true, message: 'Servidor de email conectado' };
     } catch (error) {
-      console.error('❌ Error al conectar con servidor de email:', error);
+      //console.error('Error al conectar con servidor de email:', error);
       return { success: false, error: error.message };
     }
   }
@@ -117,14 +116,14 @@ class EmailService {
       const mailOptions = {
         from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM_ADDRESS}>`,
         to: email,
-        subject: '🔐 Código para Cambio de Contraseña - Taskeer',
+        subject: 'Código para Cambio de Contraseña - Taskeer',
         html: html,
         text: `Hola ${nombre},\n\nTu código para cambiar la contraseña es: ${codigo}\n\nEste código expira en 15 minutos.\n\nSi no solicitaste este cambio, ignora este mensaje.`
       };
 
       const info = await transporter.sendMail(mailOptions);
-      console.log('✅ Email de cambio de contraseña enviado:', info.messageId);
-      console.log('📧 Destinatario:', email);
+      //console.log('Email de cambio de contraseña enviado:', info.messageId);
+      //console.log('Destinatario:', email);
 
       return {
         success: true,
@@ -132,7 +131,7 @@ class EmailService {
         destinatario: email
       };
     } catch (error) {
-      console.error('❌ Error al enviar email de cambio de contraseña:', error);
+      //console.error('Error al enviar email de cambio de contraseña:', error);
       throw new Error('No se pudo enviar el email de cambio de contraseña');
     }
   }
@@ -151,14 +150,14 @@ class EmailService {
       const mailOptions = {
         from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM_ADDRESS}>`,
         to: email,
-        subject: '🔐 Código de Recuperación de Contraseña - Taskeer',
+        subject: 'Código de Recuperación de Contraseña - Taskeer',
         html: html,
         text: `Hola ${nombre},\n\nTu código de recuperación de contraseña es: ${codigo}\n\nEste código expira en 15 minutos.\n\nSi no solicitaste este cambio, ignora este mensaje.`
       };
 
       const info = await transporter.sendMail(mailOptions);
-      console.log('✅ Email de recuperación enviado:', info.messageId);
-      console.log('📧 Destinatario:', email);
+      //console.log('Email de recuperación enviado:', info.messageId);
+      //console.log('Destinatario:', email);
 
       return {
         success: true,
@@ -166,7 +165,7 @@ class EmailService {
         destinatario: email
       };
     } catch (error) {
-      console.error('❌ Error al enviar email de recuperación:', error);
+      //console.error('Error al enviar email de recuperación:', error);
       throw new Error('No se pudo enviar el email de recuperación');
     }
   }

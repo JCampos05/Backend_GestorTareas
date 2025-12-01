@@ -1,4 +1,3 @@
-// src/controllers/compartir/lista.compartir.controller.js
 const db = require('../../config/config');
 const {
     ListaCompartida,
@@ -46,9 +45,8 @@ const normalizarTipoNotificacion = (tipo) => {
 };
 
 
-/**
- * Generar clave para compartir lista
- */
+
+//Generar clave para compartir lista
 exports.generarClaveLista = async (req, res) => {
     const connection = await db.getConnection();
 
@@ -58,13 +56,13 @@ exports.generarClaveLista = async (req, res) => {
         const { idLista } = req.params;
         const idUsuario = req.usuario.idUsuario;
 
-        console.log('🔵 POST /compartir/lista/:id/generar-clave');
-        console.log('📋 Params:', req.params);
-        console.log('🆔 ID extraído:', idLista);
-        console.log('👤 Usuario:', idUsuario);
+        //console.log('POST /compartir/lista/:id/generar-clave');
+        //console.log('Params:', req.params);
+        //console.log('ID extraído:', idLista);
+        //console.log('Usuario:', idUsuario);
 
         if (!idLista || !idUsuario) {
-            console.log('❌ Validación falló:', { idLista, idUsuario });
+            //console.log('Validación falló:', { idLista, idUsuario });
             await connection.rollback();
             connection.release();
             return res.status(400).json({
@@ -80,7 +78,7 @@ exports.generarClaveLista = async (req, res) => {
             [idLista, idUsuario]
         );
 
-        console.log('📊 Resultados de BD:', rows.length);
+        console.log('Resultados de BD:', rows.length);
 
         if (rows.length === 0) {
             console.log(' Lista no encontrada');
@@ -97,14 +95,14 @@ exports.generarClaveLista = async (req, res) => {
         let claveExistia = !!clave;
 
         if (clave) {
-            console.log('🔄 Lista ya tiene clave, reutilizándola:', clave);
+           // console.log('Lista ya tiene clave, reutilizándola:', clave);
         } else {
-            console.log('🆕 Generando nueva clave...');
+            //console.log('Generando nueva clave...');
             clave = generarClaveCompartir();
-            console.log('🔑 Clave generada:', clave, 'Tipo:', typeof clave);
+            //console.log('Clave generada:', clave, 'Tipo:', typeof clave);
 
             if (!clave) {
-                console.log('❌ Error: clave es undefined o null');
+                //console.log('Error: clave es undefined o null');
                 throw new Error('No se pudo generar la clave de compartir');
             }
 
@@ -119,34 +117,34 @@ exports.generarClaveLista = async (req, res) => {
                 intentos++;
             }
 
-            console.log('🔑 Clave final única:', clave, 'Intentos:', intentos);
+            //console.log('Clave final única:', clave, 'Intentos:', intentos);
         }
 
-        console.log('💾 Actualizando BD - compartible = TRUE');
+        //console.log('Actualizando BD - compartible = TRUE');
 
         const [updateResult] = await connection.execute(
             'UPDATE lista SET claveCompartir = ?, compartible = TRUE WHERE idLista = ?',
             [clave, idLista]
         );
 
-        console.log('✅ UPDATE ejecutado. Filas afectadas:', updateResult.affectedRows);
+        //console.log('UPDATE ejecutado. Filas afectadas:', updateResult.affectedRows);
 
         const [verificacion] = await connection.execute(
             'SELECT claveCompartir FROM lista WHERE idLista = ?',
             [idLista]
         );
-        console.log('🔍 Verificación BD - Clave guardada:', verificacion[0]?.claveCompartir);
+        //console.log('Verificación BD - Clave guardada:', verificacion[0]?.claveCompartir);
 
         const claveGuardada = verificacion[0]?.claveCompartir || clave;
 
-        // 🔧 Verificar si el propietario ya existe en lista_compartida
+        // Verificar si el propietario ya existe en lista_compartida
         const [registroExistente] = await connection.execute(
             'SELECT * FROM lista_compartida WHERE idLista = ? AND idUsuario = ?',
             [parseInt(idLista), idUsuario]
         );
 
         if (registroExistente.length === 0) {
-            // ✅ Insertar al propietario con rol admin (se comparte a sí mismo)
+            // Insertar al propietario con rol admin (se comparte a sí mismo)
             await connection.execute(
                 `INSERT INTO lista_compartida 
                  (idLista, idUsuario, rol, esCreador, aceptado, activo, compartidoPor, fechaCompartido) 
@@ -161,16 +159,16 @@ exports.generarClaveLista = async (req, res) => {
                     idUsuario
                 ]
             );
-            console.log('✅ Propietario insertado en lista_compartida con rol admin');
+            //console.log('Propietario insertado en lista_compartida con rol admin');
         } else {
-            // ✅ Actualizar el registro existente
+            // Actualizar el registro existente
             await connection.execute(
                 `UPDATE lista_compartida 
                  SET rol = ?, esCreador = ?, aceptado = ?, activo = ? 
                  WHERE idLista = ? AND idUsuario = ?`,
                 ['admin', true, true, true, parseInt(idLista), idUsuario]
             );
-            console.log('✅ Propietario actualizado en lista_compartida con rol admin');
+            //console.log('Propietario actualizado en lista_compartida con rol admin');
         }
 
         // Registrar auditoría
@@ -187,7 +185,7 @@ exports.generarClaveLista = async (req, res) => {
             ]
         );
 
-        console.log('✅ Auditoría registrada');
+        //console.log('Auditoría registrada');
 
         await connection.commit();
 
@@ -203,14 +201,14 @@ exports.generarClaveLista = async (req, res) => {
             }
         };
 
-        console.log('📤 Enviando respuesta:', respuesta);
+        //console.log('Enviando respuesta:', respuesta);
 
         res.json(respuesta);
 
     } catch (error) {
         await connection.rollback();
-        console.error('❌ ERROR COMPLETO:', error);
-        console.error('Stack:', error.stack);
+        //console.error('ERROR COMPLETO:', error);
+        //console.error('Stack:', error.stack);
         res.status(500).json({
             error: 'Error al generar clave de compartir',
             detalles: error.message,
@@ -220,9 +218,8 @@ exports.generarClaveLista = async (req, res) => {
         connection.release();
     }
 };
-/**
- * Unirse a lista mediante clave
- */
+
+// Unirse a lista mediante clave
 exports.unirseListaPorClave = async (req, res) => {
     try {
         const { clave } = req.body;
@@ -300,9 +297,7 @@ exports.unirseListaPorClave = async (req, res) => {
     }
 };
 
-/**
- * Invitar usuario a lista - VERSIÓN CORREGIDA COMPLETA
- */
+//Invitar usuario a lista - VERSIÓN CORREGIDA COMPLETA
 exports.invitarUsuarioLista = async (req, res) => {
     const connection = await db.getConnection();
 
@@ -313,10 +308,10 @@ exports.invitarUsuarioLista = async (req, res) => {
         let { email, rol } = req.body;
         const idUsuarioInvita = req.usuario.idUsuario;
 
-        console.log('📧 Invitando usuario:', { idLista, email, rol, idUsuarioInvita });
+        //console.log('Invitando usuario:', { idLista, email, rol, idUsuarioInvita });
 
         const rolDB = mapearRolFrontendADB(rol);
-        console.log('🔄 Rol mapeado:', rol, '->', rolDB);
+        //console.log('Rol mapeado:', rol, '->', rolDB);
 
         if (!['admin', 'editor', 'colaborador', 'visor'].includes(rolDB)) {
             await connection.rollback();
@@ -390,7 +385,7 @@ exports.invitarUsuarioLista = async (req, res) => {
             return res.status(404).json({ error: 'Lista no encontrada' });
         }
 
-        // ✅ Insertar en lista_compartida
+        // Insertar en lista_compartida
         await connection.query(
             `INSERT INTO lista_compartida 
              (idLista, idUsuario, rol, compartidoPor, aceptado, activo, esCreador) 
@@ -398,7 +393,7 @@ exports.invitarUsuarioLista = async (req, res) => {
             [idLista, usuarioInvitado.idUsuario, rolDB, idUsuarioInvita]
         );
 
-        console.log('✅ Registro creado en lista_compartida con rol:', rolDB);
+        //console.log('Registro creado en lista_compartida con rol:', rolDB);
 
         // Marcar lista como compartible si no lo está
         if (!listas[0].compartible) {
@@ -406,7 +401,7 @@ exports.invitarUsuarioLista = async (req, res) => {
                 'UPDATE lista SET compartible = TRUE WHERE idLista = ?',
                 [idLista]
             );
-            console.log('✅ Lista marcada como compartible');
+            //console.log('Lista marcada como compartible');
         }
 
         // Obtener nombre del usuario que invita
@@ -415,7 +410,6 @@ exports.invitarUsuarioLista = async (req, res) => {
             [idUsuarioInvita]
         );
 
-        // ✅ CREAR NOTIFICACIÓN CORRECTA
         const notificacionController = require('./notificacion.controller');
 
         await notificacionController.crearNotificacion(
@@ -434,7 +428,7 @@ exports.invitarUsuarioLista = async (req, res) => {
             }
         );
 
-        console.log('📤 Notificación SSE enviada por invitación');
+        //console.log('Notificación SSE enviada por invitación');
 
         // Registrar auditoría
         try {
@@ -455,12 +449,12 @@ exports.invitarUsuarioLista = async (req, res) => {
                 ]
             );
         } catch (auditoriaError) {
-            console.warn('⚠️ No se pudo registrar en auditoría:', auditoriaError.message);
+            //console.warn('No se pudo registrar en auditoría:', auditoriaError.message);
         }
 
         await connection.commit();
 
-        console.log('✅ Invitación enviada y usuario agregado exitosamente');
+        //console.log('Invitación enviada y usuario agregado exitosamente');
 
         res.json({
             success: true,
@@ -474,8 +468,8 @@ exports.invitarUsuarioLista = async (req, res) => {
         });
     } catch (error) {
         await connection.rollback();
-        console.error('❌ Error al invitar usuario:', error);
-        console.error('Stack:', error.stack);
+        //console.error('Error al invitar usuario:', error);
+        //console.error('Stack:', error.stack);
         res.status(500).json({
             error: 'Error al agregar usuario',
             detalles: error.message
@@ -485,9 +479,8 @@ exports.invitarUsuarioLista = async (req, res) => {
     }
 };
 
-/**
- * Listar usuarios con acceso a lista
- */
+
+//Listar usuarios con acceso a lista
 exports.listarUsuariosLista = async (req, res) => {
     try {
         const { idLista } = req.params;
@@ -510,9 +503,8 @@ exports.listarUsuariosLista = async (req, res) => {
     }
 };
 
-/**
- * Modificar rol de usuario en lista
- */
+
+//Modificar rol de usuario en lista
 exports.modificarRolLista = async (req, res) => {
     const connection = await db.getConnection();
 
@@ -523,10 +515,10 @@ exports.modificarRolLista = async (req, res) => {
         let { nuevoRol } = req.body;
         const idUsuario = req.usuario.idUsuario;
 
-        console.log('🔄 Modificando rol:', { idLista, idUsuarioModificar, nuevoRol, solicitadoPor: idUsuario });
+        console.log('Modificando rol:', { idLista, idUsuarioModificar, nuevoRol, solicitadoPor: idUsuario });
 
         const nuevoRolDB = mapearRolFrontendADB(nuevoRol);
-        console.log('🔄 Rol mapeado:', nuevoRol, '->', nuevoRolDB);
+        console.log('Rol mapeado:', nuevoRol, '->', nuevoRolDB);
 
         if (!['admin', 'editor', 'colaborador', 'visor'].includes(nuevoRolDB)) {
             await connection.rollback();
@@ -568,7 +560,7 @@ exports.modificarRolLista = async (req, res) => {
         );
 
         if (usuarioEnLista.length === 0) {
-            console.log('⚠️ Usuario no está en lista_compartida, verificando acceso por categoría...');
+            console.log('Usuario no está en lista_compartida, verificando acceso por categoría...');
 
             if (lista[0].idCategoria) {
                 const [accesoCategoria] = await connection.execute(
@@ -583,7 +575,7 @@ exports.modificarRolLista = async (req, res) => {
                          VALUES (?, ?, ?, ?, TRUE, TRUE, FALSE, CURRENT_TIMESTAMP)`,
                         [idLista, idUsuarioModificar, nuevoRolDB, lista[0].idUsuario]
                     );
-                    console.log('✅ Usuario agregado a lista_compartida con rol:', nuevoRolDB);
+                    //console.log('Usuario agregado a lista_compartida con rol:', nuevoRolDB);
                 } else {
                     await connection.rollback();
                     return res.status(404).json({ error: 'Usuario no encontrado en esta lista' });
@@ -612,10 +604,10 @@ exports.modificarRolLista = async (req, res) => {
                 return res.status(404).json({ error: 'No se pudo actualizar el rol' });
             }
 
-            console.log('✅ Rol actualizado en BD a:', nuevoRolDB);
+            //console.log('Rol actualizado en BD a:', nuevoRolDB);
         }
 
-        // ✅ Obtener información necesaria para la notificación
+        // Obtener información necesaria para la notificación
         const [usuarioModificado] = await connection.execute(
             'SELECT nombre, email FROM usuario WHERE idUsuario = ?',
             [idUsuarioModificar]
@@ -626,27 +618,27 @@ exports.modificarRolLista = async (req, res) => {
             [idUsuario]
         );
 
-        // ✅ CREAR NOTIFICACIÓN SSE
+        // CREAR NOTIFICACIÓN SSE
         const notificacionController = require('./notificacion.controller');
 
         await notificacionController.crearNotificacion(
             connection,
             parseInt(idUsuarioModificar),
             'cambio_rol_lista',
-            '🔄 Cambio de rol',
+            'Cambio de rol',
             `${usuarioQueModifica[0].nombre} cambió tu rol en "${lista[0].nombre}" a ${nuevoRol}`,
             {
                 idLista: parseInt(idLista),
                 listaId: parseInt(idLista),
                 listaNombre: lista[0].nombre,
-                nuevoRol: nuevoRol, // ✅ Rol en formato frontend
+                nuevoRol: nuevoRol, // Rol en formato frontend
                 rolAnterior: usuarioEnLista.length > 0 ? mapearRolDBaFrontend(usuarioEnLista[0].rol) : null,
                 modificadoPor: usuarioQueModifica[0].nombre,
                 modificadoPorId: idUsuario
             }
         );
 
-        console.log('📤 Notificación SSE enviada por cambio de rol');
+        //console.log('Notificación SSE enviada por cambio de rol');
 
         // Registrar auditoría
         try {
@@ -668,12 +660,12 @@ exports.modificarRolLista = async (req, res) => {
                 ]
             );
         } catch (auditoriaError) {
-            console.warn('⚠️ No se pudo registrar en auditoría:', auditoriaError.message);
+            console.warn('No se pudo registrar en auditoría:', auditoriaError.message);
         }
 
         await connection.commit();
 
-        console.log('✅ Rol modificado exitosamente');
+        //console.log('Rol modificado exitosamente');
 
         res.json({
             success: true,
@@ -686,8 +678,8 @@ exports.modificarRolLista = async (req, res) => {
         });
     } catch (error) {
         await connection.rollback();
-        console.error('❌ Error al modificar rol:', error);
-        console.error('Stack:', error.stack);
+        //console.error('Error al modificar rol:', error);
+        //console.error('Stack:', error.stack);
         res.status(500).json({
             error: 'Error al modificar rol',
             detalles: error.message
@@ -698,9 +690,8 @@ exports.modificarRolLista = async (req, res) => {
 };
 
 
-/**
- * Revocar acceso a lista
- */
+
+//Revocar acceso a lista
 exports.revocarAccesoLista = async (req, res) => {
     const connection = await db.getConnection();
 
@@ -710,9 +701,9 @@ exports.revocarAccesoLista = async (req, res) => {
         const { idLista, idUsuarioRevocar } = req.params;
         const idUsuario = req.usuario.idUsuario;
 
-        console.log('🚫 Revocando acceso:', { idLista, idUsuarioRevocar, solicitadoPor: idUsuario });
+        //console.log('Revocando acceso:', { idLista, idUsuarioRevocar, solicitadoPor: idUsuario });
 
-        // ✅ Verificar permisos del solicitante
+        // Verificar permisos del solicitante
         const [lista] = await connection.execute(
             'SELECT idUsuario FROM lista WHERE idLista = ?',
             [idLista]
@@ -739,7 +730,7 @@ exports.revocarAccesoLista = async (req, res) => {
             }
         }
 
-        // ✅ Obtener datos antes de revocar
+        // Obtener datos antes de revocar
         const [usuarioRevocado] = await connection.execute(
             `SELECT u.nombre, u.email, lc.esCreador, l.nombre as listaNombre
              FROM lista_compartida lc
@@ -759,7 +750,7 @@ exports.revocarAccesoLista = async (req, res) => {
             return res.status(403).json({ error: 'No se puede revocar el acceso del creador' });
         }
 
-        // ✅ Revocar acceso
+        // Revocar acceso
         const [result] = await connection.execute(
             'UPDATE lista_compartida SET activo = FALSE WHERE idLista = ? AND idUsuario = ? AND esCreador = FALSE',
             [idLista, idUsuarioRevocar]
@@ -770,13 +761,12 @@ exports.revocarAccesoLista = async (req, res) => {
             return res.status(404).json({ error: 'No se pudo revocar el acceso' });
         }
 
-        // ✅ Obtener datos del solicitante
+        // Obtener datos del solicitante
         const [usuarioSolicitante] = await connection.execute(
             'SELECT nombre FROM usuario WHERE idUsuario = ?',
             [idUsuario]
         );
 
-        // ✅ CREAR NOTIFICACIÓN **ANTES** DEL COMMIT
         const notificacionController = require('./notificacion.controller');
 
         await notificacionController.crearNotificacion(
@@ -796,7 +786,7 @@ exports.revocarAccesoLista = async (req, res) => {
 
         console.log('📤 Notificación de revocación enviada');
 
-        // ✅ Auditoría
+        // Auditoría
         await connection.execute(
             `INSERT INTO auditoria_compartidos 
              (tipo, idEntidad, idUsuario, accion, detalles, fecha)
@@ -813,7 +803,7 @@ exports.revocarAccesoLista = async (req, res) => {
             ]
         );
 
-        // ✅ COMMIT AL FINAL
+        // COMMIT AL FINAL
         await connection.commit();
 
         res.json({
@@ -826,7 +816,7 @@ exports.revocarAccesoLista = async (req, res) => {
 
     } catch (error) {
         await connection.rollback();
-        console.error('❌ Error al revocar acceso:', error);
+        console.error('Error al revocar acceso:', error);
         res.status(500).json({
             error: 'Error al revocar acceso',
             detalles: error.message
@@ -836,9 +826,8 @@ exports.revocarAccesoLista = async (req, res) => {
     }
 };
 
-/**
- * Salir de una lista compartida
- */
+
+//Salir de una lista compartida
 exports.salirDeLista = async (req, res) => {
     try {
         const { idLista } = req.params;
@@ -871,15 +860,14 @@ exports.salirDeLista = async (req, res) => {
     }
 };
 
-/**
- * Descompartir lista (revocar todos los accesos)
- */
+
+//Descompartir lista (revocar todos los accesos)
 exports.descompartirLista = async (req, res) => {
     try {
         const { idLista } = req.params;
         const idUsuario = req.usuario.idUsuario;
 
-        console.log('🔵 Descompartiendo lista:', idLista, 'Usuario:', idUsuario);
+        console.log('Descompartiendo lista:', idLista, 'Usuario:', idUsuario);
 
         const [listaRows] = await db.execute(
             'SELECT * FROM lista WHERE idLista = ? AND idUsuario = ?',
@@ -910,14 +898,14 @@ exports.descompartirLista = async (req, res) => {
             detalles: {}
         });
 
-        console.log('✅ Lista descompartida exitosamente');
+        console.log('Lista descompartida exitosamente');
 
         res.json({
             mensaje: 'Lista descompartida exitosamente',
             idLista
         });
     } catch (error) {
-        console.error('❌ Error al descompartir lista:', error);
+        console.error('Error al descompartir lista:', error);
         res.status(500).json({
             error: 'Error al descompartir lista',
             detalles: error.message
@@ -925,17 +913,13 @@ exports.descompartirLista = async (req, res) => {
     }
 };
 
-/**
- * Obtener todas las listas compartidas del usuario
- */
-// En lista-compartir.controller.js
-// REEMPLAZAR el método obtenerListasCompartidas completo
 
+//Obtener todas las listas compartidas del usuario
 exports.obtenerListasCompartidas = async (req, res) => {
     try {
         const idUsuario = req.usuario.idUsuario;
 
-        console.log('🔵 Obteniendo listas compartidas para usuario:', idUsuario);
+        //console.log('Obteniendo listas compartidas para usuario:', idUsuario);
 
         const query = `
             SELECT DISTINCT
@@ -998,7 +982,7 @@ exports.obtenerListasCompartidas = async (req, res) => {
             idUsuario
         ]);
 
-        console.log('🟢 Listas compartidas encontradas:', rows.length);
+        //console.log('Listas compartidas encontradas:', rows.length);
 
         res.json({
             listas: rows.map(lista => ({
@@ -1024,22 +1008,21 @@ exports.obtenerListasCompartidas = async (req, res) => {
             }))
         });
     } catch (error) {
-        console.error('❌ Error al obtener listas compartidas:', error);
+        //console.error('Error al obtener listas compartidas:', error);
         res.status(500).json({ error: 'Error al obtener listas compartidas' });
     }
 };
 
-/**
- * Información de compartidos de una lista
- */
+
+//Información de compartidos de una lista
 exports.infoCompartidosLista = async (req, res) => {
     try {
         const { idLista } = req.params;
         const idUsuario = req.usuario.idUsuario;
 
-        console.log('🔍 Obteniendo info compartidos. Lista:', idLista, 'Usuario:', idUsuario);
+        //console.log('Obteniendo info compartidos. Lista:', idLista, 'Usuario:', idUsuario);
 
-        // ✅ MEJORA: Verificar acceso considerando propietario, lista_compartida Y categoria_compartida
+        // Verificar acceso considerando propietario, lista_compartida Y categoria_compartida
         const [accesoRows] = await db.execute(
             `SELECT 
                 l.idLista,
@@ -1069,7 +1052,7 @@ exports.infoCompartidosLista = async (req, res) => {
         );
 
         if (accesoRows.length === 0) {
-            console.log('❌ Lista no encontrada');
+            console.log('Lista no encontrada');
             return res.status(404).json({ error: 'Lista no encontrada' });
         }
 
@@ -1079,7 +1062,7 @@ exports.infoCompartidosLista = async (req, res) => {
         const tieneAccesoCategoria = lista.tieneAccesoCompartidoCategoria;
         const tieneAcceso = esPropietario || tieneAccesoLista || tieneAccesoCategoria;
 
-        console.log('📊 Verificación de acceso:', {
+        /*console.log('Verificación de acceso:', {
             esPropietario,
             tieneAccesoLista,
             tieneAccesoCategoria,
@@ -1087,15 +1070,15 @@ exports.infoCompartidosLista = async (req, res) => {
             idPropietario: lista.idPropietario,
             idUsuarioActual: idUsuario,
             idCategoria: lista.idCategoria
-        });
+        });*/
 
-        // ✅ Validación considerando acceso por categoría
+        // Validación considerando acceso por categoría
         if (!tieneAcceso) {
-            console.log('❌ Usuario sin acceso');
+            //console.log('Usuario sin acceso');
             return res.status(403).json({ error: 'No tienes acceso a esta lista' });
         }
 
-        console.log('✅ Usuario tiene acceso. Rol:', lista.tuRol);
+        //console.log('Usuario tiene acceso. Rol:', lista.tuRol);
 
         // Obtener TODOS los usuarios con acceso DIRECTO a la lista
         const [usuariosCompartidosLista] = await db.execute(
@@ -1114,9 +1097,9 @@ exports.infoCompartidosLista = async (req, res) => {
             [idLista]
         );
 
-        console.log('📋 Usuarios con acceso directo a lista:', usuariosCompartidosLista.length);
+        console.log('Usuarios con acceso directo a lista:', usuariosCompartidosLista.length);
 
-        // ✅ NUEVO: Si la lista pertenece a una categoría, obtener usuarios con acceso por categoría
+        // Si la lista pertenece a una categoría, obtener usuarios con acceso por categoría
         let usuariosCompartidosCategoria = [];
         if (lista.idCategoria) {
             const [usuariosCategoria] = await db.execute(
@@ -1135,7 +1118,7 @@ exports.infoCompartidosLista = async (req, res) => {
                 [lista.idCategoria]
             );
             usuariosCompartidosCategoria = usuariosCategoria;
-            console.log('📁 Usuarios con acceso por categoría:', usuariosCompartidosCategoria.length);
+            //console.log('Usuarios con acceso por categoría:', usuariosCompartidosCategoria.length);
         }
 
         // Obtener datos del propietario
@@ -1145,7 +1128,7 @@ exports.infoCompartidosLista = async (req, res) => {
         );
 
         if (propietarioData.length === 0) {
-            console.log('❌ Propietario no encontrado');
+            //console.log('Propietario no encontrado');
             return res.status(500).json({ error: 'Error: propietario no encontrado' });
         }
 
@@ -1153,7 +1136,7 @@ exports.infoCompartidosLista = async (req, res) => {
         const usuarios = [];
         const usuariosAgregados = new Set(); // Para evitar duplicados
 
-        // ✅ Agregar al propietario primero
+        // Agregar al propietario primero
         const propietarioEnLista = usuariosCompartidosLista.find(u => u.idUsuario === propietario.idUsuario);
 
         usuarios.push({
@@ -1169,9 +1152,9 @@ exports.infoCompartidosLista = async (req, res) => {
             puedeEliminar: false
         });
         usuariosAgregados.add(propietario.idUsuario);
-        console.log('✅ Propietario agregado');
+        //console.log('Propietario agregado');
 
-        // ✅ Agregar usuarios con acceso directo a la lista (excluyendo propietario)
+        // Agregar usuarios con acceso directo a la lista (excluyendo propietario)
         usuariosCompartidosLista.forEach(u => {
             if (!usuariosAgregados.has(u.idUsuario)) {
                 usuarios.push({
@@ -1190,7 +1173,7 @@ exports.infoCompartidosLista = async (req, res) => {
             }
         });
 
-        // ✅ NUEVO: Agregar usuarios con acceso por categoría (excluyendo ya agregados)
+        // Agregar usuarios con acceso por categoría (excluyendo ya agregados)
         usuariosCompartidosCategoria.forEach(u => {
             if (!usuariosAgregados.has(u.idUsuario)) {
                 usuarios.push({
@@ -1209,7 +1192,7 @@ exports.infoCompartidosLista = async (req, res) => {
             }
         });
 
-        console.log(`✅ Total usuarios: ${usuarios.length}`);
+        console.log(`Total usuarios: ${usuarios.length}`);
 
         // Determinar rol del usuario actual
         let tuRol;
@@ -1233,11 +1216,11 @@ exports.infoCompartidosLista = async (req, res) => {
             puedesGestionar: esPropietario || lista.tuRol === 'admin'
         });
 
-        console.log('✅ Info compartidos enviada correctamente');
+        //console.log('Info compartidos enviada correctamente');
 
     } catch (error) {
-        console.error('❌ Error al obtener info compartidos:', error);
-        console.error('Stack:', error.stack);
+        //console.error('Error al obtener info compartidos:', error);
+        //console.error('Stack:', error.stack);
         res.status(500).json({
             error: 'Error al obtener información de compartidos',
             detalles: error.message

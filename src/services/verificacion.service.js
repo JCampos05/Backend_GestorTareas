@@ -2,16 +2,13 @@ const pool = require('../config/config');
 
 class VerificacionService {
 
-    /**
-     * Generar código aleatorio de 6 dígitos
-     */
+
+    //Generar código aleatorio de 6 dígitos
     generarCodigo() {
         return Math.floor(100000 + Math.random() * 900000).toString();
     }
 
-    /**
-     * Guardar código de verificación
-     */
+    //Guardar código de verificación
     async guardarCodigo(idUsuario, codigo, ipGeneracion = null) {
         const expiracionMinutos = parseInt(process.env.CODIGO_EXPIRACION_MINUTOS || '15');
 
@@ -30,17 +27,15 @@ class VerificacionService {
                 ipGeneracion
             ]);
 
-            console.log(`✅ Código guardado para usuario ${idUsuario}`);
+            console.log(`Código guardado para usuario ${idUsuario}`);
             return { success: true, idVerificacion: result.insertId };
         } catch (error) {
-            console.error('❌ Error al guardar código:', error);
+            console.error('Error al guardar código:', error);
             throw new Error('No se pudo guardar el código de verificación');
         }
     }
 
-    /**
-     * Verificar código ingresado por el usuario
-     */
+    //Verificar código ingresado por el usuario
     async verificarCodigo(idUsuario, codigoIngresado) {
         const intentosMax = parseInt(process.env.CODIGO_INTENTOS_MAX || '3');
 
@@ -108,7 +103,7 @@ class VerificacionService {
                 };
             }
 
-            // ✅ Código correcto
+            // Código correcto
             // Marcar como verificado
             await pool.query(
                 'UPDATE verificacion_email SET verificado = TRUE WHERE idVerificacion = ?',
@@ -121,7 +116,7 @@ class VerificacionService {
                 [idUsuario]
             );
 
-            console.log(`✅ Usuario ${idUsuario} verificado exitosamente`);
+            console.log(`Usuario ${idUsuario} verificado exitosamente`);
 
             return {
                 success: true,
@@ -129,14 +124,12 @@ class VerificacionService {
             };
 
         } catch (error) {
-            console.error('❌ Error al verificar código:', error);
+            console.error('Error al verificar código:', error);
             throw new Error('Error al verificar el código');
         }
     }
 
-    /**
-     * Verificar si puede solicitar un nuevo código (cooldown)
-     */
+    //Verificar si puede solicitar un nuevo código (cooldown)
     async puedeReenviarCodigo(idUsuario) {
         const cooldownSegundos = parseInt(process.env.REENVIO_COOLDOWN_SEGUNDOS || '60');
 
@@ -172,14 +165,12 @@ class VerificacionService {
             return { puede: true };
 
         } catch (error) {
-            console.error('❌ Error al verificar cooldown:', error);
+            console.error('Error al verificar cooldown:', error);
             throw new Error('Error al verificar disponibilidad de reenvío');
         }
     }
 
-    /**
-     * Verificar límite de códigos por día
-     */
+    //Verificar límite de códigos por día
     async verificarLimiteDiario(idUsuario) {
         const limiteDia = parseInt(process.env.LIMITE_CODIGOS_DIA || '5');
 
@@ -209,14 +200,12 @@ class VerificacionService {
             };
 
         } catch (error) {
-            console.error('❌ Error al verificar límite diario:', error);
+            console.error('Error al verificar límite diario:', error);
             throw new Error('Error al verificar límite diario');
         }
     }
 
-    /**
-     * Limpiar códigos antiguos (llamado por cron)
-     */
+    //Limpiar códigos antiguos (llamado por cron)
     async limpiarCodigosExpirados() {
         const query = `
       DELETE FROM verificacion_email 
@@ -225,17 +214,15 @@ class VerificacionService {
 
         try {
             const [result] = await pool.query(query);
-            console.log(`🗑️  ${result.affectedRows} códigos expirados eliminados`);
+            console.log(`${result.affectedRows} códigos expirados eliminados`);
             return { eliminados: result.affectedRows };
         } catch (error) {
-            console.error('❌ Error al limpiar códigos:', error);
+            console.error('Error al limpiar códigos:', error);
             return { eliminados: 0 };
         }
     }
 
-    /**
-     * Obtener estadísticas de verificación (para admin)
-     */
+    //Obtener estadísticas de verificación (para admin)
     async obtenerEstadisticas() {
         const query = `
       SELECT 
@@ -251,7 +238,7 @@ class VerificacionService {
             const [rows] = await pool.query(query);
             return rows[0];
         } catch (error) {
-            console.error('❌ Error al obtener estadísticas:', error);
+            console.error('Error al obtener estadísticas:', error);
             return null;
         }
     }

@@ -2,9 +2,7 @@
 const pool = require('../config/config');
 
 class Mensaje {
-    /**
-     * Crear un nuevo mensaje
-     */
+    //Crear un nuevo mensaje
     static async crear(datos) {
         const { contenido, idLista, idUsuario } = datos;
 
@@ -23,9 +21,7 @@ class Mensaje {
         }
     }
 
-    /**
-     * Obtener mensaje por ID con información del usuario
-     */
+    //Obtener mensaje por ID con información del usuario
     static async obtenerPorId(idMensaje) {
         const query = `
       SELECT 
@@ -53,9 +49,7 @@ class Mensaje {
         }
     }
 
-    /**
-     * Obtener mensajes de una lista con paginación
-     */
+    //Obtener mensajes de una lista con paginación
     static async obtenerPorLista(idLista, idUsuario, limite = 50, offset = 0) {
         try {
             const [rows] = await pool.execute(
@@ -69,9 +63,7 @@ class Mensaje {
         }
     }
 
-    /**
-     * Editar un mensaje
-     */
+    //Editar un mensaje
     static async editar(idMensaje, idUsuario, nuevoContenido) {
         const query = `
       UPDATE mensaje 
@@ -92,9 +84,7 @@ class Mensaje {
         }
     }
 
-    /**
-     * Eliminar un mensaje (soft delete)
-     */
+    //Eliminar un mensaje (soft delete)
     static async eliminar(idMensaje, idUsuario) {
         const query = `
       UPDATE mensaje 
@@ -115,9 +105,7 @@ class Mensaje {
         }
     }
 
-    /**
-     * Marcar mensaje como leído
-     */
+    //Marcar mensaje como leído
     static async marcarComoLeido(idMensaje, idUsuario) {
         const query = `
       INSERT INTO mensaje_lectura (idMensaje, idUsuario, fechaLeido)
@@ -133,9 +121,7 @@ class Mensaje {
         }
     }
 
-    /**
-     * Marcar todos los mensajes de una lista como leídos
-     */
+    //Marcar todos los mensajes de una lista como leídos
     static async marcarTodosComoLeidos(idLista, idUsuario) {
         try {
             const [rows] = await pool.execute(
@@ -149,9 +135,7 @@ class Mensaje {
         }
     }
 
-    /**
-     * Obtener conteo de mensajes no leídos por lista
-     */
+    //Obtener conteo de mensajes no leídos por lista
     static async obtenerNoLeidos(idUsuario, idLista = null) {
         let query = `
       SELECT 
@@ -188,9 +172,7 @@ class Mensaje {
         }
     }
 
-    /**
-     * Verificar si un usuario tiene acceso a una lista
-     */
+    //Verificar si un usuario tiene acceso a una lista
     static async verificarAccesoLista(idUsuario, idLista) {
         const query = `
       SELECT 1 

@@ -119,8 +119,7 @@ class CategoriaCompartida {
         }
     }
 }
-
-// src/models/listaCompartida.js
+/*
 class ListaCompartida {
     constructor(data) {
         this.idListaCompartida = data.idListaCompartida;
@@ -357,11 +356,11 @@ class AuditoriaCompartidos {
             throw new Error(`Error al obtener auditoría: ${error.message}`);
         }
     }
-}
+}*/
 
 module.exports = {
     CategoriaCompartida,
-    ListaCompartida,
-    Invitacion,
-    AuditoriaCompartidos
+    //ListaCompartida,
+    //Invitacion,
+    //AuditoriaCompartidos
 };

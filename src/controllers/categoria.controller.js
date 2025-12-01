@@ -1,4 +1,3 @@
-// src/controllers/categoria.controller.js
 const Categoria = require('../models/categoria');
 const db = require('../config/config');
 

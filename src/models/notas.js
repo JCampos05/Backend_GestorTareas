@@ -1,4 +1,4 @@
-const db = require("../config/config"); // Tu conexión a MySQL
+const db = require("../config/config");
 
 class Nota {
     // Obtener todas las notas del usuario

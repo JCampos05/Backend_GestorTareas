@@ -9,7 +9,7 @@ exports.streamNotificaciones = (req, res) => {
         return res.status(401).json({ error: 'Usuario no autenticado' });
     }
 
-    console.log(`📡 Cliente SSE conectado - Usuario ID: ${idUsuario}`);
+    console.log(`Cliente SSE conectado - Usuario ID: ${idUsuario}`);
 
     // Configurar headers para SSE
     res.setHeader('Content-Type', 'text/event-stream');
@@ -32,7 +32,7 @@ exports.streamNotificaciones = (req, res) => {
 
     // Manejar desconexión del cliente
     req.on('close', () => {
-        console.log(`📡 Cliente SSE desconectado - Usuario ID: ${idUsuario}`);
+        console.log(`Cliente SSE desconectado - Usuario ID: ${idUsuario}`);
         sseManager.removeClient(idUsuario, res);
     });
 };

@@ -1,9 +1,7 @@
-// src/controllers/compartir/invitacion.controller.js
 const db = require('../../config/config');
 const NotificacionController = require('./notificacion.controller');
 
 class InvitacionController {
-
   // Invitar usuario a lista
   async invitarUsuarioLista(req, res) {
     const connection = await db.getConnection();

@@ -1,10 +1,10 @@
 const Tarea = require("../models/tarea");
-const sseManager = require('../utils/sseManager')
+const sseManager = require('../utils/sseManager');
+
 const tareaController = {
-    //  NUEVO: Asignar tarea a usuario
     asignarTarea: async (req, res) => {
-        const db = require('../config/config');  //  AGREGADO
-        const connection = await db.getConnection();  //  CORREGIDO
+        const db = require('../config/config');  
+        const connection = await db.getConnection(); 
 
         try {
             await connection.beginTransaction();
@@ -35,7 +35,7 @@ const tareaController = {
                 });
             }
 
-            // ✅ MEJORADO: Obtener datos completos
+            // Obtener datos completos
             const [tarea] = await connection.execute(
                 'SELECT * FROM tarea WHERE idTarea = ?',
                 [id]
@@ -56,7 +56,7 @@ const tareaController = {
                 [tarea[0].idLista]
             );
 
-            // ✅ USAR notificacionController para crear y enviar vía SSE
+            // Usar notificacionController para crear y enviar vía SSE
             const notificacionController = require('./compartir/notificacion.controller');
 
             await notificacionController.crearNotificacion(
@@ -68,14 +68,14 @@ const tareaController = {
                 {
                     idTarea: parseInt(id),
                     idLista: listaInfo[0]?.idLista,
-                    listaId: listaInfo[0]?.idLista, // ✅ Ambos formatos para compatibilidad
+                    listaId: listaInfo[0]?.idLista, // Ambos formatos para compatibilidad
                     listaNombre: listaInfo[0]?.nombre || 'Lista',
                     tareaNombre: tarea[0].nombre,
                     asignadoPor: usuarioAsignador[0]?.nombre
                 }
             );
 
-            console.log(`📧 Notificación de asignación enviada a ${usuarioAsignado[0].email}`);
+            //console.log(`Notificación de asignación enviada a ${usuarioAsignado[0].email}`);
 
             await connection.commit();
 
@@ -86,7 +86,7 @@ const tareaController = {
             });
         } catch (error) {
             await connection.rollback();
-            console.error("Error en asignarTarea:", error);
+            //console.error("Error en asignarTarea:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al asignar la tarea",
@@ -97,7 +97,7 @@ const tareaController = {
         }
     },
 
-    // ✅ NUEVO: Desasignar tarea
+    // Desasignar tarea
     desasignarTarea: async (req, res) => {
         try {
             const { id } = req.params;
@@ -120,7 +120,7 @@ const tareaController = {
                 message: resultado.message,
             });
         } catch (error) {
-            console.error("Error en desasignarTarea:", error);
+            //console.error("Error en desasignarTarea:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al desasignar la tarea",
@@ -129,7 +129,7 @@ const tareaController = {
         }
     },
 
-    // ✅ NUEVO: Obtener usuarios disponibles para asignar
+    // Obtener usuarios disponibles para asignar
     obtenerUsuariosDisponibles: async (req, res) => {
         try {
             const { idLista } = req.params;
@@ -152,7 +152,7 @@ const tareaController = {
                 data: resultado.usuarios,
             });
         } catch (error) {
-            console.error("Error en obtenerUsuariosDisponibles:", error);
+            //console.error("Error en obtenerUsuariosDisponibles:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al obtener usuarios disponibles",
@@ -209,7 +209,7 @@ const tareaController = {
                 });
             }
 
-            // ✅ Preparar recordatorio como JSON array si existe
+            // Preparar recordatorio como JSON array si existe
             let recordatorioJSON = null;
             if (recordatorio) {
                 // Si ya es un array, usarlo directamente
@@ -247,7 +247,7 @@ const tareaController = {
                 idLista: idLista || null,
             });
 
-            // ✅ Notificar a usuarios compartidos
+            // Notificar a usuarios compartidos
             if (idLista) {
                 const [usuariosCompartidos] = await connection.execute(
                     `SELECT DISTINCT lc.idUsuario, u.nombre, u.email, l.nombre as listaNombre
@@ -261,7 +261,7 @@ const tareaController = {
                     [idLista, idUsuario]
                 );
 
-                console.log(`📋 Notificando a ${usuariosCompartidos.length} usuarios sobre tarea nueva`);
+                //console.log(`Notificando a ${usuariosCompartidos.length} usuarios sobre tarea nueva`);
 
                 const notificacionController = require('./compartir/notificacion.controller');
 
@@ -281,7 +281,7 @@ const tareaController = {
                         }
                     );
 
-                    console.log(`📤 Notificación enviada a ${usuario.email}`);
+                    //console.log(`Notificación enviada a ${usuario.email}`);
                 }
             }
 
@@ -295,7 +295,7 @@ const tareaController = {
 
         } catch (error) {
             await connection.rollback();
-            console.error("Error en crearTarea:", error);
+            //console.error("Error en crearTarea:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al crear la tarea",
@@ -311,7 +311,7 @@ const tareaController = {
         try {
             const idUsuario = req.usuario.idUsuario;
 
-            // ✅ MODIFICADO: Obtener solo tareas sin asignar o asignadas al usuario actual
+            // Obtener solo tareas sin asignar o asignadas al usuario actual
             let tareas = await Tarea.obtenerTodas(idUsuario);
 
             // Filtrar tareas: mostrar solo las que no están asignadas o están asignadas a este usuario
@@ -330,7 +330,7 @@ const tareaController = {
                 data: tareas,
             });
         } catch (error) {
-            console.error("Error en obtenerTareas:", error);
+            //console.error("Error en obtenerTareas:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al obtener las tareas",
@@ -358,7 +358,7 @@ const tareaController = {
                 data: tarea,
             });
         } catch (error) {
-            console.error("Error en obtenerTareaPorId:", error);
+            //console.error("Error en obtenerTareaPorId:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al obtener la tarea",
@@ -424,7 +424,7 @@ const tareaController = {
                 });
             }
 
-            // ✅ Preparar recordatorio como JSON array si existe
+            // Preparar recordatorio como JSON array si existe
             let recordatorioJSON = recordatorio;
             if (recordatorio !== undefined && recordatorio !== null) {
                 // Si ya es un array, convertirlo a JSON string
@@ -495,7 +495,7 @@ const tareaController = {
                 data: tareaActualizada,
             });
         } catch (error) {
-            console.error("Error en actualizarTarea:", error);
+            //console.error("Error en actualizarTarea:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al actualizar la tarea",
@@ -510,8 +510,8 @@ const tareaController = {
             const idUsuario = req.usuario.idUsuario;
             const eliminada = await Tarea.eliminar(id, idUsuario);
 
-            console.log(id);
-            console.log(eliminada);
+            //console.log(id);
+            //console.log(eliminada);
 
             if (!eliminada) {
                 return res.status(404).json({
@@ -525,7 +525,7 @@ const tareaController = {
                 message: "Tarea eliminada exitosamente",
             });
         } catch (error) {
-            console.error("Error en eliminarTarea:", error);
+            //console.error("Error en eliminarTarea:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al eliminar la tarea",
@@ -541,10 +541,10 @@ const tareaController = {
             const { estado } = req.body;
             const idUsuario = req.usuario.idUsuario;
 
-            console.log("📝 cambiarEstado llamado:", { id, estado, idUsuario });
+            //console.log("cambiarEstado llamado:", { id, estado, idUsuario });
 
             if (!estado) {
-                console.log("❌ Estado no proporcionado");
+                //console.log("Estado no proporcionado");
                 return res.status(400).json({
                     success: false,
                     message: "El estado es requerido",
@@ -552,7 +552,7 @@ const tareaController = {
             }
 
             if (!["C", "P", "N"].includes(estado)) {
-                console.log("❌ Estado inválido:", estado);
+                //console.log("Estado inválido:", estado);
                 return res.status(400).json({
                     success: false,
                     message:
@@ -560,25 +560,25 @@ const tareaController = {
                 });
             }
 
-            console.log("✅ Validaciones pasadas, llamando a Tarea.cambiarEstado...");
+            //console.log("Validaciones pasadas, llamando a Tarea.cambiarEstado...");
             const tareaActualizada = await Tarea.cambiarEstado(id, estado, idUsuario);
 
             if (!tareaActualizada) {
-                console.log("❌ Tarea no encontrada o sin permisos");
+                //console.log("Tarea no encontrada o sin permisos");
                 return res.status(404).json({
                     success: false,
                     message: "Tarea no encontrada",
                 });
             }
 
-            console.log("✅ Estado actualizado exitosamente");
+            //console.log("Estado actualizado exitosamente");
             res.status(200).json({
                 success: true,
                 message: "Estado actualizado exitosamente",
                 data: tareaActualizada,
             });
         } catch (error) {
-            console.error("❌ Error en cambiarEstado:", error);
+            //console.error("Error en cambiarEstado:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al cambiar el estado",
@@ -608,7 +608,7 @@ const tareaController = {
                 data: tareas,
             });
         } catch (error) {
-            console.error("Error en obtenerPorEstado:", error);
+            //console.error("Error en obtenerPorEstado:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al obtener tareas por estado",
@@ -638,7 +638,7 @@ const tareaController = {
                 data: tareas,
             });
         } catch (error) {
-            console.error("Error en obtenerPorPrioridad:", error);
+            //console.error("Error en obtenerPorPrioridad:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al obtener tareas por prioridad",
@@ -659,7 +659,7 @@ const tareaController = {
                 data: tareas,
             });
         } catch (error) {
-            console.error("Error en obtenerVencidas:", error);
+            //console.error("Error en obtenerVencidas:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al obtener tareas vencidas",
@@ -676,7 +676,7 @@ const tareaController = {
 
             let tareas = await Tarea.obtenerPorLista(idLista, idUsuario);
 
-            // ✅ NUEVO: Filtrar tareas asignadas a otros usuarios
+            // Filtrar tareas asignadas a otros usuarios
             tareas = tareas.filter((tarea) => {
                 if (!tarea.idUsuarioAsignado) {
                     return true;
@@ -684,18 +684,18 @@ const tareaController = {
                 return tarea.idUsuarioAsignado === idUsuario;
             });
 
-            // ✅ CRÍTICO: Asegurar que miDia sea booleano ANTES de enviar
+            //  Asegurar que miDia sea booleano ANTES de enviar
             tareas = tareas.map(tarea => ({
                 ...tarea,
                 miDia: Boolean(tarea.miDia === 1 || tarea.miDia === true)
             }));
 
-            console.log('📋 Tareas con miDia normalizado:', tareas.map(t => ({
+            /*console.log('Tareas con miDia normalizado:', tareas.map(t => ({
                 id: t.idTarea,
                 nombre: t.nombre,
                 miDia: t.miDia,
                 tipo: typeof t.miDia
-            })));
+            })));*/
 
             res.status(200).json({
                 success: true,
@@ -703,7 +703,7 @@ const tareaController = {
                 data: tareas,
             });
         } catch (error) {
-            console.error("Error en obtenerPorLista:", error);
+            //console.error("Error en obtenerPorLista:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al obtener tareas por lista",
@@ -719,11 +719,11 @@ const tareaController = {
             const { miDia } = req.body;
             const idUsuario = req.usuario.idUsuario;
 
-            console.log('🌞 alternarMiDia llamado:', {
+            /*console.log('alternarMiDia llamado:', {
                 idTarea: id,
                 miDia,
                 idUsuario
-            });
+            });*/
 
             if (miDia === undefined) {
                 return res.status(400).json({
@@ -732,7 +732,7 @@ const tareaController = {
                 });
             }
 
-            // ✅ Usar el método actualizado que maneja la tabla intermedia
+            // Usar el método actualizado que maneja la tabla intermedia
             const tareaActualizada = await Tarea.alternarMiDia(
                 id,
                 Boolean(miDia),
@@ -746,14 +746,11 @@ const tareaController = {
                 });
             }
 
-            console.log('✅ Mi Día actualizado:', {
+            /*console.log('Mi Día actualizado:', {
                 idTarea: tareaActualizada.idTarea,
                 miDia: tareaActualizada.miDia,
                 usuario: idUsuario
-            });
-
-            // ✅ NO emitir evento a otros usuarios (cada uno tiene su propio Mi Día)
-            // Solo necesitamos confirmar al usuario actual
+            });*/
 
             res.status(200).json({
                 success: true,
@@ -764,7 +761,7 @@ const tareaController = {
             });
 
         } catch (error) {
-            console.error("❌ Error en alternarMiDia:", error);
+            //console.error("Error en alternarMiDia:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al actualizar Mi Día",
@@ -784,7 +781,7 @@ const tareaController = {
                 data: tareas,
             });
         } catch (error) {
-            console.error("Error en obtenerMiDia:", error);
+            //console.error("Error en obtenerMiDia:", error);
             res.status(500).json({
                 success: false,
                 message: "Error al obtener tareas de Mi Día",
@@ -793,7 +790,7 @@ const tareaController = {
         }
     },
 
-    // ✅ NUEVO: Obtener todas las tareas de una lista (para asignación)
+    //Obtener todas las tareas de una lista (para asignación)
     obtenerTodasPorLista: async (req, res) => {
         try {
             const { idLista } = req.params;
@@ -813,7 +810,7 @@ const tareaController = {
                 data: resultado.tareas
             });
         } catch (error) {
-            console.error('Error en obtenerTodasPorLista:', error);
+            //console.error('Error en obtenerTodasPorLista:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al obtener tareas de la lista',
@@ -823,15 +820,13 @@ const tareaController = {
     },
 
     // Obtener listas por categoría
-    // Obtener listas por categoría
     obtenerPorCategoria: async (req, res) => {
         try {
             const { idCategoria } = req.params;
             const idUsuario = req.usuario.idUsuario;
             const listas = await Lista.obtenerPorCategoria(idCategoria, idUsuario);
 
-            // 🔍 LOG PARA DEBUGGING
-            console.log('📦 Listas enviadas al frontend:');
+            //console.log('Listas enviadas al frontend:');
             listas.forEach(l => {
                 console.log(`  - ${l.nombre}: importante = ${l.importante} (tipo: ${typeof l.importante})`);
             });
@@ -842,7 +837,7 @@ const tareaController = {
                 data: listas
             });
         } catch (error) {
-            console.error('Error en obtenerPorCategoria:', error);
+            //console.error('Error en obtenerPorCategoria:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al obtener listas por categoría',
@@ -851,7 +846,7 @@ const tareaController = {
         }
     },
 
-    // ✅ NUEVO: Verificar y crear tareas repetidas
+    // Verificar y crear tareas repetidas
     verificarTareasRepetidas: async (req, res) => {
         try {
             const Tarea = require('../models/tarea');
@@ -869,7 +864,7 @@ const tareaController = {
                 AND (t.ultimaRepeticion IS NULL OR DATE(t.ultimaRepeticion) < CURDATE())
         `);
 
-            console.log(`📋 Tareas a repetir encontradas: ${tareasRepetir.length}`);
+            //console.log(`Tareas a repetir encontradas: ${tareasRepetir.length}`);
 
             const tareasCreadas = [];
 
@@ -906,7 +901,7 @@ const tareaController = {
                         connection,
                         tarea.idUsuario,
                         'tarea_repetir',
-                        '🔄 Tarea repetida',
+                        'Tarea repetida',
                         `Tu tarea "${tarea.nombre}" se ha programado nuevamente`,
                         {
                             tareaId: nuevaTarea.idTarea,
@@ -917,7 +912,7 @@ const tareaController = {
                     await connection.commit();
                 } catch (error) {
                     await connection.rollback();
-                    console.error('Error al crear notificación:', error);
+                    //console.error('Error al crear notificación:', error);
                 } finally {
                     connection.release();
                 }
@@ -938,7 +933,7 @@ const tareaController = {
             });
 
         } catch (error) {
-            console.error('Error en verificarTareasRepetidas:', error);
+            //console.error('Error en verificarTareasRepetidas:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al verificar tareas repetidas',
@@ -958,9 +953,9 @@ const tareaController = {
             const { fecha, tipo } = req.body; // tipo: '1_dia_antes', '1_hora_antes', 'personalizado'
             const idUsuario = req.usuario.idUsuario || req.usuario.id;
 
-            console.log('🔔 Agregando recordatorio:', { idTarea, fecha, tipo, idUsuario });
+            //console.log('Agregando recordatorio:', { idTarea, fecha, tipo, idUsuario });
 
-            // ✅ Validar que la tarea existe y pertenece al usuario
+            // Validar que la tarea existe y pertenece al usuario
             const [tareas] = await connection.execute(
                 'SELECT idTarea, nombre, recordatorio, idUsuario FROM tarea WHERE idTarea = ?',
                 [idTarea]
@@ -973,20 +968,20 @@ const tareaController = {
 
             const tarea = tareas[0];
 
-            // ✅ Verificar permisos
+            // Verificar permisos
             if (tarea.idUsuario !== idUsuario) {
                 await connection.rollback();
                 return res.status(403).json({ error: 'No tienes permisos para modificar esta tarea' });
             }
 
-            // ✅ Validar fecha
+            // Validar fecha
             const fechaRecordatorio = new Date(fecha);
             if (isNaN(fechaRecordatorio.getTime())) {
                 await connection.rollback();
                 return res.status(400).json({ error: 'Fecha de recordatorio inválida' });
             }
 
-            // ✅ Obtener recordatorios actuales
+            // Obtener recordatorios actuales
             let recordatorios = [];
             if (tarea.recordatorio) {
                 try {
@@ -998,12 +993,12 @@ const tareaController = {
                         recordatorios = [];
                     }
                 } catch (parseError) {
-                    console.warn('⚠️ Error al parsear recordatorios existentes, iniciando array vacío');
+                    //console.warn('Error al parsear recordatorios existentes, iniciando array vacío');
                     recordatorios = [];
                 }
             }
 
-            // ✅ Agregar nuevo recordatorio
+            // Agregar nuevo recordatorio
             const nuevoRecordatorio = {
                 fecha: fechaRecordatorio.toISOString(),
                 tipo: tipo || 'personalizado',
@@ -1013,10 +1008,10 @@ const tareaController = {
 
             recordatorios.push(nuevoRecordatorio);
 
-            // ✅ Ordenar por fecha (más cercanos primero)
+            // Ordenar por fecha (más cercanos primero)
             recordatorios.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
-            // ✅ Actualizar en base de datos
+            // Actualizar en base de datos
             await connection.execute(
                 'UPDATE tarea SET recordatorio = ? WHERE idTarea = ?',
                 [JSON.stringify(recordatorios), idTarea]
@@ -1024,7 +1019,7 @@ const tareaController = {
 
             await connection.commit();
 
-            console.log('✅ Recordatorio agregado exitosamente');
+            //console.log('Recordatorio agregado exitosamente');
 
             res.json({
                 mensaje: 'Recordatorio agregado exitosamente',
@@ -1034,7 +1029,7 @@ const tareaController = {
 
         } catch (error) {
             await connection.rollback();
-            console.error('❌ Error al agregar recordatorio:', error);
+            //console.error('Error al agregar recordatorio:', error);
             res.status(500).json({
                 error: 'Error al agregar recordatorio',
                 detalle: error.message
@@ -1054,9 +1049,9 @@ const tareaController = {
             const { idTarea, indice } = req.params; // indice del recordatorio en el array
             const idUsuario = req.usuario.idUsuario || req.usuario.id;
 
-            console.log('🗑️ Eliminando recordatorio:', { idTarea, indice, idUsuario });
+            //console.log('Eliminando recordatorio:', { idTarea, indice, idUsuario });
 
-            // ✅ Validar que la tarea existe
+            // Validar que la tarea existe
             const [tareas] = await connection.execute(
                 'SELECT idTarea, recordatorio, idUsuario FROM tarea WHERE idTarea = ?',
                 [idTarea]
@@ -1069,13 +1064,13 @@ const tareaController = {
 
             const tarea = tareas[0];
 
-            // ✅ Verificar permisos
+            // Verificar permisos
             if (tarea.idUsuario !== idUsuario) {
                 await connection.rollback();
                 return res.status(403).json({ error: 'No tienes permisos para modificar esta tarea' });
             }
 
-            // ✅ Obtener recordatorios actuales
+            // Obtener recordatorios actuales
             let recordatorios = [];
             if (tarea.recordatorio) {
                 try {
@@ -1088,17 +1083,17 @@ const tareaController = {
                 }
             }
 
-            // ✅ Validar índice
+            // Validar índice
             const idx = parseInt(indice);
             if (idx < 0 || idx >= recordatorios.length) {
                 await connection.rollback();
                 return res.status(400).json({ error: 'Índice de recordatorio inválido' });
             }
 
-            // ✅ Eliminar recordatorio
+            // Eliminar recordatorio
             recordatorios.splice(idx, 1);
 
-            // ✅ Actualizar en base de datos
+            // Actualizar en base de datos
             const nuevoValor = recordatorios.length > 0 ? JSON.stringify(recordatorios) : null;
             await connection.execute(
                 'UPDATE tarea SET recordatorio = ? WHERE idTarea = ?',
@@ -1107,7 +1102,7 @@ const tareaController = {
 
             await connection.commit();
 
-            console.log('✅ Recordatorio eliminado exitosamente');
+            //console.log('Recordatorio eliminado exitosamente');
 
             res.json({
                 mensaje: 'Recordatorio eliminado exitosamente',
@@ -1117,7 +1112,7 @@ const tareaController = {
 
         } catch (error) {
             await connection.rollback();
-            console.error('❌ Error al eliminar recordatorio:', error);
+            //console.error('Error al eliminar recordatorio:', error);
             res.status(500).json({
                 error: 'Error al eliminar recordatorio',
                 detalle: error.message
@@ -1133,7 +1128,7 @@ const tareaController = {
             const { idTarea } = req.params;
             const idUsuario = req.usuario.idUsuario || req.usuario.id;
 
-            // ✅ Obtener tarea con recordatorios
+            // Obtener tarea con recordatorios
             const [tareas] = await db.execute(
                 'SELECT idTarea, nombre, recordatorio, idUsuario FROM tarea WHERE idTarea = ?',
                 [idTarea]
@@ -1145,12 +1140,12 @@ const tareaController = {
 
             const tarea = tareas[0];
 
-            // ✅ Verificar permisos
+            // Verificar permisos
             if (tarea.idUsuario !== idUsuario) {
                 return res.status(403).json({ error: 'No tienes permisos para ver esta tarea' });
             }
 
-            // ✅ Parsear recordatorios
+            // Parsear recordatorios
             let recordatorios = [];
             if (tarea.recordatorio) {
                 try {
@@ -1162,7 +1157,7 @@ const tareaController = {
                         recordatorios = [];
                     }
                 } catch (parseError) {
-                    console.warn('⚠️ Error al parsear recordatorios');
+                    //console.warn('Error al parsear recordatorios');
                     recordatorios = [];
                 }
             }
@@ -1175,7 +1170,7 @@ const tareaController = {
             });
 
         } catch (error) {
-            console.error('❌ Error al obtener recordatorios:', error);
+            //console.error('Error al obtener recordatorios:', error);
             res.status(500).json({
                 error: 'Error al obtener recordatorios',
                 detalle: error.message

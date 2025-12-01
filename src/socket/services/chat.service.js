@@ -1,11 +1,8 @@
-// src/socket/services/chat.service.js
 const pool = require('../../config/config');
 const Mensaje = require('../../models/mensaje');
 
 class ChatService {
-    /**
-     * Registrar usuario online y su actividad
-     */
+    //Registrar usuario online y su actividad
     static async registrarUsuarioOnline(idUsuario, idLista, socketId) {
         const query = `
       INSERT INTO usuario_actividad (
@@ -32,9 +29,8 @@ class ChatService {
         }
     }
 
-    /**
-     * Actualizar última actividad del usuario
-     */
+
+    //Actualizar última actividad del usuario
     static async actualizarActividad(socketId) {
         const query = `
       UPDATE usuario_actividad 
@@ -49,9 +45,8 @@ class ChatService {
         }
     }
 
-    /**
-     * Remover usuario online (desconectar)
-     */
+
+    //Remover usuario online (desconectar)
     static async removerUsuarioOnline(socketId) {
         const query = `
       UPDATE usuario_actividad 
@@ -68,9 +63,7 @@ class ChatService {
         }
     }
 
-    /**
-     * Remover usuario de una lista específica
-     */
+    //Remover usuario de una lista específica
     static async removerUsuarioLista(idUsuario, idLista, socketId) {
         const query = `
       UPDATE usuario_actividad 
@@ -87,9 +80,7 @@ class ChatService {
         }
     }
 
-    /**
-     * Obtener usuarios online en una lista
-     */
+    //Obtener usuarios online en una lista
     static async obtenerUsuariosOnline(idLista) {
         const query = `
       SELECT DISTINCT
@@ -116,9 +107,7 @@ class ChatService {
         }
     }
 
-    /**
-     * Registrar estado "escribiendo"
-     */
+    //Registrar estado "escribiendo"
     static async registrarEscribiendo(idUsuario, idLista, socketId) {
         const query = `
       UPDATE usuario_actividad
@@ -138,9 +127,7 @@ class ChatService {
         }
     }
 
-    /**
-     * Remover estado "escribiendo"
-     */
+    //Remover estado "escribiendo"
     static async removerEscribiendo(idUsuario, idLista, socketId = null) {
         let query, params;
 
@@ -173,9 +160,7 @@ class ChatService {
         }
     }
 
-    /**
-     * Obtener usuarios escribiendo en una lista
-     */
+    //Obtener usuarios escribiendo en una lista
     static async obtenerUsuariosEscribiendo(idLista) {
         const query = `
       SELECT DISTINCT
@@ -201,9 +186,7 @@ class ChatService {
         }
     }
 
-    /**
-     * Verificar si un usuario está online en una lista
-     */
+    //Verificar si un usuario está online en una lista
     static async estaUsuarioOnline(idUsuario, idLista) {
         const query = `
       SELECT 1
@@ -224,9 +207,8 @@ class ChatService {
         }
     }
 
-    /**
-     * Obtener todas las listas donde el usuario está conectado
-     */
+
+    //Obtener todas las listas donde el usuario está conectado
     static async obtenerListasActivasUsuario(idUsuario) {
         const query = `
       SELECT DISTINCT
@@ -248,9 +230,7 @@ class ChatService {
         }
     }
 
-    /**
-     * Validar mensaje
-     */
+    //Validar mensaje
     static validarMensaje(contenido) {
         if (!contenido || typeof contenido !== 'string') {
             throw new Error('El contenido del mensaje es requerido');
@@ -269,9 +249,7 @@ class ChatService {
         return contenidoLimpio;
     }
 
-    /**
-     * Crear mensaje
-     */
+    //Crear mensaje
     static async crearMensaje(idLista, idUsuario, contenido) {
         try {
             // Validar contenido
@@ -296,9 +274,7 @@ class ChatService {
         }
     }
 
-    /**
-     * Obtener estadísticas del chat
-     */
+    //Obtener estadísticas del chat
     static async obtenerEstadisticas(idLista) {
         const query = `
       SELECT 
@@ -330,20 +306,19 @@ class ChatService {
                 usuariosEscribiendo: usuariosEscribiendo.length
             };
         } catch (error) {
-            console.error('Error al obtener estadísticas:', error);
+            //console.error('Error al obtener estadísticas:', error);
             return null;
         }
     }
 
-    /**
-     * Limpiar actividad inactiva manualmente (además del evento programado)
-     */
+
+    //Limpiar actividad inactiva manualmente (además del evento programado)
     static async limpiarActividadInactiva() {
         try {
             await pool.execute('CALL sp_limpiar_actividad_inactiva()');
-            console.log('✅ Actividad inactiva limpiada');
+            //console.log('Actividad inactiva limpiada');
         } catch (error) {
-            console.error('Error al limpiar actividad inactiva:', error);
+            //console.error('Error al limpiar actividad inactiva:', error);
         }
     }
 }

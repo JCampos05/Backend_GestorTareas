@@ -1,105 +1,101 @@
 const db = require('../config/config');
 
 class ListaCompartida {
-    /**
-     * Crear acceso compartido a lista
-     */
-    static async crear({ idLista, idUsuario, rol, compartidoPor, aceptado = false, activo = true }) {
+    constructor(data) {
+        this.idListaCompartida = data.idListaCompartida;
+        this.idLista = data.idLista;
+        this.idUsuario = data.idUsuario;
+        this.rol = data.rol;
+        this.esCreador = data.esCreador;
+        this.fechaCompartido = data.fechaCompartido;
+        this.compartidoPor = data.compartidoPor;
+        this.aceptado = data.aceptado;
+        this.activo = data.activo;
+    }
+
+    static async crear(data) {
         try {
-            const [result] = await db.execute(
-                `INSERT INTO lista_compartida 
-                (idLista, idUsuario, rol, compartidoPor, aceptado, activo, esCreador) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [idLista, idUsuario, rol, compartidoPor, aceptado, activo, false]
-            );
+            const query = `
+                INSERT INTO lista_compartida 
+                (idLista, idUsuario, rol, esCreador, compartidoPor, aceptado, activo)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `;
+            const [result] = await db.execute(query, [
+                data.idLista,
+                data.idUsuario,
+                data.rol || 'colaborador',
+                data.esCreador || false,
+                data.compartidoPor,
+                data.aceptado !== undefined ? data.aceptado : false,
+                data.activo !== undefined ? data.activo : true
+            ]);
+
             return result.insertId;
         } catch (error) {
-            console.error('Error al crear lista compartida:', error);
-            throw error;
+            throw new Error(`Error al crear compartido: ${error.message}`);
         }
     }
 
-    /**
-     * Obtener acceso de un usuario a una lista
-     */
     static async obtener(idLista, idUsuario) {
         try {
-            const [rows] = await db.execute(
-                `SELECT * FROM lista_compartida 
-                 WHERE idLista = ? AND idUsuario = ?`,
-                [idLista, idUsuario]
-            );
-            return rows.length > 0 ? rows[0] : null;
+            const query = `
+                SELECT lc.*, u.nombre, u.email
+                FROM lista_compartida lc
+                JOIN usuario u ON lc.idUsuario = u.idUsuario
+                WHERE lc.idLista = ? AND lc.idUsuario = ?
+            `;
+            const [rows] = await db.execute(query, [idLista, idUsuario]);
+            return rows.length > 0 ? new ListaCompartida(rows[0]) : null;
         } catch (error) {
-            console.error('Error al obtener lista compartida:', error);
-            throw error;
+            throw new Error(`Error al obtener compartido: ${error.message}`);
         }
     }
 
-    /**
-     * Listar usuarios con acceso a una lista
-     */
     static async listarPorLista(idLista) {
         try {
-            const [rows] = await db.execute(
-                `SELECT lc.*, u.nombre, u.email,
-                        (l.idUsuario = lc.idUsuario) as esCreador
-                 FROM lista_compartida lc
-                 JOIN usuario u ON lc.idUsuario = u.idUsuario
-                 JOIN lista l ON lc.idLista = l.idLista
-                 WHERE lc.idLista = ? AND lc.activo = TRUE
-                 ORDER BY lc.esCreador DESC, u.nombre ASC`,
-                [idLista]
-            );
+            const query = `
+                SELECT 
+                    lc.*,
+                    u.idUsuario,
+                    u.nombre,
+                    u.email
+                FROM lista_compartida lc
+                JOIN usuario u ON lc.idUsuario = u.idUsuario
+                WHERE lc.idLista = ? AND lc.activo = TRUE
+                ORDER BY lc.esCreador DESC, lc.fechaCompartido ASC
+            `;
+            const [rows] = await db.execute(query, [idLista]);
             return rows;
         } catch (error) {
-            console.error('Error al listar usuarios de lista:', error);
-            throw error;
+            throw new Error(`Error al listar usuarios: ${error.message}`);
         }
     }
 
-    /**
-     * Actualizar rol de un usuario
-     */
     static async actualizarRol(idLista, idUsuario, nuevoRol) {
         try {
-            const [checkCreador] = await db.execute(
-                `SELECT l.idUsuario FROM lista l WHERE l.idLista = ?`,
-                [idLista]
-            );
-
-            if (checkCreador.length > 0 && checkCreador[0].idUsuario === idUsuario) {
-                return false;
-            }
-
-            const [result] = await db.execute(
-                `UPDATE lista_compartida 
-                 SET rol = ? 
-                 WHERE idLista = ? AND idUsuario = ? AND esCreador = FALSE`,
-                [nuevoRol, idLista, idUsuario]
-            );
+            const query = `
+                UPDATE lista_compartida 
+                SET rol = ? 
+                WHERE idLista = ? AND idUsuario = ? AND esCreador = FALSE
+            `;
+            const [result] = await db.execute(query, [nuevoRol, idLista, idUsuario]);
             return result.affectedRows > 0;
         } catch (error) {
-            console.error('Error al actualizar rol:', error);
-            throw error;
+            throw new Error(`Error al actualizar rol: ${error.message}`);
         }
     }
 
-    /**
-     * Revocar acceso
-     */
     static async revocar(idLista, idUsuario) {
         try {
-            const [result] = await db.execute(
-                `UPDATE lista_compartida 
-                 SET activo = FALSE 
-                 WHERE idLista = ? AND idUsuario = ? AND esCreador = FALSE`,
-                [idLista, idUsuario]
-            );
+            const query = `
+                UPDATE lista_compartida 
+                SET activo = FALSE 
+                WHERE idLista = ? AND idUsuario = ? AND esCreador = FALSE
+            `;
+            const [result] = await db.execute(query, [idLista, idUsuario]);
             return result.affectedRows > 0;
         } catch (error) {
-            console.error('Error al revocar acceso:', error);
-            throw error;
+            throw new Error(`Error al revocar acceso: ${error.message}`);
         }
     }
 }
